@@ -3,6 +3,10 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 from datetime import datetime
 
+from flask_wtf import FlaskForm
+from wtforms import StringField, PasswordField, SubmitField, IntegerField
+from wtforms.validators import Length, EqualTo, Email, DataRequired
+
 app = Flask(__name__)
 app.secret_key = '1231231321'  # Zmień na losowy ciąg
 
@@ -46,6 +50,20 @@ class Rezerwacja(db.Model):
     data = db.Column(db.DateTime, nullable=False)
     oplacony = db.Column(db.Boolean, nullable=False, default=False)
 
+class RegisterForm(FlaskForm):
+    username = StringField(label = 'username', validators = [Length(min = 2, max = 30), DataRequired()])
+    fullname = StringField(label = 'fullname', validators = [Length(min=3, max = 30), DataRequired()])
+    address = StringField(label = 'address', validators = [Length(min=7, max = 50), DataRequired()])
+    phone_number = IntegerField(label = 'phone_number', validators = [DataRequired()]) #try to find phone
+    password1 = PasswordField(label = 'password1', validators = [Length(min = 6), DataRequired()])
+    password2 = PasswordField(label = 'password2', validators = [EqualTo('password1'), DataRequired()])
+    submit = SubmitField(label = 'Sign Up')
+
+class LoginForm(FlaskForm):
+    username = StringField(label = 'username', validators = [DataRequired()])
+    password = PasswordField(label = 'password', validators = [DataRequired()])
+    submit = SubmitField(label = 'Sign In')
+
 
 @login_manager.user_loader
 def load_user(user_id):
@@ -62,17 +80,17 @@ def home():
 # Logowanie
 @app.route('/login', methods=['GET', 'POST'])
 def login():
-    if request.method == 'POST':
-        email = request.form['email']
-        password = request.form['password']
-        user = Uzytkownik.query.filter_by(email=email).first()
-
-        if user and user.password == password:
-            login_user(user)
+    forml = LoginForm()
+    form = RegisterForm()
+    if forml.validate_on_submit():
+        attempted_user = Uzytkownik.query.filter_by(email=forml.username.data).first()
+        if attempted_user and attempted_user.password == forml.password.data:  # Plaintext porównanie
+            login_user(attempted_user)
+            flash(f'Zalogowano pomyślnie jako: {attempted_user.email}', category='success')
             return redirect(url_for('home'))
         else:
-            flash('Nieprawidłowy email lub hasło.')
-    return render_template('login.html')
+            flash('Email lub hasło nieprawidłowe! Spróbuj ponownie.', category='danger')
+    return render_template('login.html', forml=forml, form=form)
 
 
 # Wylogowanie
@@ -82,6 +100,28 @@ def logout():
     logout_user()
     return redirect(url_for('home'))
 
+@app.route('/register', methods = ['GET', 'POST'])
+def register_page():
+    forml = LoginForm()
+    form = RegisterForm()
+    #checks if form is valid
+    if form.validate_on_submit():
+         user_to_create = Uzytkownik(username = form.username.data,
+                               fullname = form.fullname.data,
+                               address = form.address.data,
+                               phone_number = form.phone_number.data,
+                               password = form.password1.data,)
+         db.session.add(user_to_create)
+         db.session.commit()
+         login_user(user_to_create) #login the user on registration
+         return redirect(url_for('verify'))
+    # else:
+    #     flash("Username already exists!")
+
+    if form.errors != {}: #if there are not errors from the validations
+        for err_msg in form.errors.values():
+            flash(f'There was an error with creating a user: {err_msg}')
+    return render_template('login.html', form = form, forml = forml)
 
 # Rezerwacja stolika
 @app.route('/reserve', methods=['GET', 'POST'])
