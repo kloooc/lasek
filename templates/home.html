@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <title>Strona Główna</title>
+</head>
+<body>
+    <h1>Witaj na stronie głównej!</h1>
+    {% if user.is_authenticated %}
+        <p>Cześć, {{ user.imie }} {{ user.nazwisko }} ({{ user.status }})!</p>
+        <a href="{{ url_for('logout') }}">Wyloguj się</a>
+    {% else %}
+        <p>Nie jesteś zalogowany.</p>
+        <a href="{{ url_for('login') }}">Zaloguj się</a>
+    {% endif %}
+</body>
+</html>
