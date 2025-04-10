@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <title>Panel Admina</title>
+</head>
+<body>
+    <h1>Panel Admina</h1>
+    {% with messages = get_flashed_messages() %}
+        {% if messages %}
+            <p style="color: green;">{{ messages[0] }}</p>
+        {% endif %}
+    {% endwith %}
+    <h2>Rezerwacje</h2>
+    <ul>
+        {% for rezerwacja in rezerwacje %}
+            <li>Stolik {{ rezerwacja.id_stolika }} - {{ rezerwacja.data }} -
+                {% if rezerwacja.oplacony %}
+                    Opłacone
+                {% else %}
+                    Nieopłacone (<a href="{{ url_for('mark_paid', rezerwacja_id=rezerwacja.id_rezerwacji) }}">Oznacz jako opłacone</a>)
+                {% endif %}
+            </li>
+        {% empty %}
+            <li>Brak rezerwacji.</li>
+        {% endfor %}
+    </ul>
+    <h2>Stoliki</h2>
+    <ul>
+        {% for stolik in stoliki %}
+            <li>Stolik {{ stolik.id_stolika }} - {{ stolik.ilosc_miejsc }} miejsc - {% if stolik.wolny %}Wolny{% else %}Zajęty{% endif %}</li>
+        {% endfor %}
+    </ul>
+    <a href="{{ url_for('home') }}">Wróć</a>
+</body>
+</html>

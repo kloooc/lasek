@@ -5,13 +5,22 @@
     <title>Strona Główna</title>
 </head>
 <body>
-    <h1>Witaj na stronie głównej!</h1>
+    <h1>Witaj w Restauracji!</h1>
     {% if user.is_authenticated %}
         <p>Cześć, {{ user.imie }} {{ user.nazwisko }} ({{ user.status }})!</p>
+        <a href="{{ url_for('reserve') }}">Zarezerwuj stolik</a> |
+        <a href="{{ url_for('my_reservations') }}">Moje rezerwacje</a> |
+        {% if user.status == 'admin' %}<a href="{{ url_for('admin') }}">Panel admina</a> | {% endif %}
         <a href="{{ url_for('logout') }}">Wyloguj się</a>
     {% else %}
         <p>Nie jesteś zalogowany.</p>
         <a href="{{ url_for('login') }}">Zaloguj się</a>
     {% endif %}
+    <h2>Dostępne stoliki:</h2>
+    <ul>
+        {% for stolik in stoliki %}
+            <li>Stolik {{ stolik.id_stolika }} - {{ stolik.ilosc_miejsc }} miejsc - {% if stolik.wolny %}Wolny{% else %}Zajęty{% endif %}</li>
+        {% endfor %}
+    </ul>
 </body>
 </html>

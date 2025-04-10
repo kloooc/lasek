@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <title>Rezerwacja Stolika</title>
+</head>
+<body>
+    <h1>Rezerwacja Stolika</h1>
+    {% with messages = get_flashed_messages() %}
+        {% if messages %}
+            <p style="color: red;">{{ messages[0] }}</p>
+        {% endif %}
+    {% endwith %}
+    <form method="POST">
+        <label>Wybierz stolik:</label><br>
+        <select name="stolik_id" required>
+            {% for stolik in stoliki %}
+                <option value="{{ stolik.id_stolika }}">Stolik {{ stolik.id_stolika }} ({{ stolik.ilosc_miejsc }} miejsc)</option>
+            {% endfor %}
+        </select><br>
+        <label>Data i godzina:</label><br>
+        <input type="datetime-local" name="data" required><br>
+        <button type="submit">Zarezerwuj</button>
+    </form>
+    <a href="{{ url_for('home') }}">Wróć</a>
+</body>
+</html>

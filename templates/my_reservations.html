@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <title>Moje Rezerwacje</title>
+</head>
+<body>
+    <h1>Moje Rezerwacje</h1>
+    <ul>
+        {% for rezerwacja in rezerwacje %}
+            <li>Stolik {{ rezerwacja.id_stolika }} - {{ rezerwacja.data }} - {% if rezerwacja.oplacony %}Opłacone{% else %}Nieopłacone{% endif %}</li>
+        {% empty %}
+            <li>Brak rezerwacji.</li>
+        {% endfor %}
+    </ul>
+    <a href="{{ url_for('home') }}">Wróć</a>
+</body>
+</html>
