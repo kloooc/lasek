@@ -3,25 +3,63 @@
 <head>
     <meta charset="UTF-8">
     <title>Rezerwacja Stolika</title>
+    <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='styles/css/styles.css') }}">
+    <link href='https://cdn.jsdelivr.net/npm/boxicons@2.0.5/css/boxicons.min.css' rel='stylesheet'>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 </head>
 <body>
-    <h1>Rezerwacja Stolika</h1>
-    {% with messages = get_flashed_messages() %}
-        {% if messages %}
-            <p style="color: red;">{{ messages[0] }}</p>
-        {% endif %}
-    {% endwith %}
-    <form method="POST">
-        <label>Wybierz stolik:</label><br>
-        <select name="stolik_id" required>
-            {% for stolik in stoliki %}
-                <option value="{{ stolik.id_stolika }}">Stolik {{ stolik.id_stolika }} ({{ stolik.ilosc_miejsc }} miejsc)</option>
-            {% endfor %}
-        </select><br>
-        <label>Data i godzina:</label><br>
-        <input type="datetime-local" name="data" required><br>
-        <button type="submit">Zarezerwuj</button>
-    </form>
-    <a href="{{ url_for('home') }}">Wróć</a>
+    <header class="l-header" id="header">
+        <nav class="nav bd-container">
+            <a href="{{ url_for('home') }}" class="nav__logo"><h1>Silver Leaf.</h1></a>
+            <div class="nav__menu" id="nav-menu">
+                <ul class="nav__list">
+                    <li class="nav__item"><a href="{{ url_for('home') }}#home" class="nav__link">Home</a></li>
+                    {% if current_user.is_authenticated %}
+                        {% if current_user.status == 'admin' %}
+                            <li class="nav__item"><a href="{{ url_for('admin') }}" class="nav__link">Panel Admina</a></li>
+                        {% endif %}
+                        <li class="nav__item"><a href="{{ url_for('my_reservations') }}" class="nav__link">Moje Rezerwacje</a></li>
+                        <li class="nav__item"><a href="{{ url_for('logout') }}" class="nav__link">Wyloguj</a></li>
+                    {% else %}
+                        <li class="nav__item"><a href="{{ url_for('login') }}" class="nav__link">Log in</a></li>
+                        <li class="nav__item"><a href="{{ url_for('register_page') }}" class="nav__link">Register</a></li>
+                    {% endif %}
+                </ul>
+            </div>
+        </nav>
+    </header>
+
+    <main class="l-main">
+        <section class="section bd-container">
+            <h1>Rezerwacja Stolika</h1>
+            <form method="POST">
+                <label>Wybierz stolik:</label><br>
+                <select name="stolik_id" required>
+                    {% for stolik in stoliki %}
+                        <option value="{{ stolik.id_stolika }}">Stolik {{ stolik.id_stolika }} ({{ stolik.ilosc_miejsc }} miejsc)</option>
+                    {% endfor %}
+                </select><br>
+                <label>Data i godzina:</label><br>
+                <input type="datetime-local" name="data" required><br>
+                <button type="submit" class="button">Zarezerwuj</button>
+            </form>
+            <a href="{{ url_for('home') }}" class="button">Wróć</a>
+        </section>
+    </main>
+
+    <script src="{{ url_for('static', filename='styles/js/main.js') }}"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const messages = {{ messages | tojson }};
+            messages.forEach(function(message) {
+                Swal.fire({
+                    icon: message.category === 'success' ? 'success' : 'error',
+                    title: message.category === 'success' ? 'Sukces' : 'Błąd',
+                    text: message.content,
+                    confirmButtonText: 'OK'
+                });
+            });
+        });
+    </script>
 </body>
 </html>

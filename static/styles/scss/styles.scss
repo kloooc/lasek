@@ -521,3 +521,87 @@ img{
         height: 640px;
     }
 }
+.users-table, .reservations-table, .tables-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1rem 0;
+}
+
+.users-table th, .users-table td,
+.reservations-table th, .reservations-table td,
+.tables-table th, .tables-table td {
+    padding: 0.75rem;
+    text-align: left;
+    border-bottom: 1px solid #ddd;
+}
+
+.users-table th, .reservations-table th, .tables-table th {
+    background-color: #f4f4f4;
+    font-weight: bold;
+}
+
+.users-table td, .reservations-table td, .tables-table td {
+    vertical-align: middle;
+}
+
+.button {
+    padding: 0.5rem 1rem;
+    background-color: #3498db;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    text-decoration: none;
+    display: inline-block;
+}
+
+.button:hover {
+    background-color: #2980b9;
+}
+
+.button-delete {
+    background-color: #e74c3c;
+}
+
+.button-delete:hover {
+    background-color: #c0392b;
+}
+
+.form-field {
+    margin: 1rem 0;
+}
+
+.form-field label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: bold;
+}
+
+.form-field input, .form-field select {
+    width: 100%;
+    padding: 0.5rem;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+}
+
+.errors {
+    color: #e74c3c;
+    list-style: none;
+    padding: 0;
+    margin: 0.5rem 0 0;
+}
+
+.flash-messages {
+    margin: 1rem 0;
+    padding: 1rem;
+    border-radius: 5px;
+    text-align: center;
+}
+.flash-messages .success {
+    background-color: #d4edda;
+    color: #155724;
+}
+.flash-messages .error {
+    background-color: #f8d7da;
+    color: #721c24;
+}

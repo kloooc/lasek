@@ -3,16 +3,88 @@
 <head>
     <meta charset="UTF-8">
     <title>Moje Rezerwacje</title>
+    <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='styles/css/styles.css') }}">
+    <link href='https://cdn.jsdelivr.net/npm/boxicons@2.0.5/css/boxicons.min.css' rel='stylesheet'>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 </head>
 <body>
-    <h1>Moje Rezerwacje</h1>
-    <ul>
-        {% for rezerwacja in rezerwacje %}
-            <li>Stolik {{ rezerwacja.id_stolika }} - {{ rezerwacja.data }} - {% if rezerwacja.oplacony %}Opłacone{% else %}Nieopłacone{% endif %}</li>
-        {% empty %}
-            <li>Brak rezerwacji.</li>
-        {% endfor %}
-    </ul>
-    <a href="{{ url_for('home') }}">Wróć</a>
+    <header class="l-header" id="header">
+        <nav class="nav bd-container">
+            <a href="{{ url_for('home') }}" class="nav__logo"><h1>Silver Leaf.</h1></a>
+            <div class="nav__menu" id="nav-menu">
+                <ul class="nav__list">
+                    <li class="nav__item"><a href="{{ url_for('home') }}#home" class="nav__link">Home</a></li>
+                    <li class="nav__item"><a href="{{ url_for('home') }}#about" class="nav__link">About</a></li>
+                    {% if current_user.is_authenticated %}
+                        {% if current_user.status == 'admin' %}
+                            <li class="nav__item"><a href="{{ url_for('admin') }}" class="nav__link">Panel Admina</a></li>
+                        {% endif %}
+                        <li class="nav__item"><a href="{{ url_for('my_reservations') }}" class="nav__link active-link">Moje Rezerwacje</a></li>
+                        <li class="nav__item"><a href="{{ url_for('logout') }}" class="nav__link">Wyloguj</a></li>
+                    {% else %}
+                        <li class="nav__item"><a href="{{ url_for('login') }}" class="nav__link">Log in</a></li>
+                        <li class="nav__item"><a href="{{ url_for('register_page') }}" class="nav__link">Register</a></li>
+                    {% endif %}
+                    <li class="nav__item"><a href="{{ url_for('home') }}#contact" class="nav__link">Contact us</a></li>
+                    <li><i class='bx bx-moon change-theme' id="theme-button"></i></li>
+                </ul>
+            </div>
+            <div class="nav__toggle" id="nav-toggle">
+                <i class='bx bx-menu'></i>
+            </div>
+        </nav>
+    </header>
+
+    <main class="l-main">
+        <section class="section bd-container">
+            <h1>Moje Rezerwacje</h1>
+            {% if rezerwacje %}
+                <table class="reservations-table">
+                    <thead>
+                        <tr>
+                            <th>Stolik</th>
+                            <th>Data i godzina</th>
+                            <th>Status płatności</th>
+                            <th>Akcje</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for rezerwacja in rezerwacje %}
+                            <tr>
+                                <td>Stolik {{ rezerwacja.id_stolika }} ({{ rezerwacja.stolik.ilosc_miejsc }} miejsc)</td>
+                                <td>{{ rezerwacja.data.strftime('%Y-%m-%d %H:%M') }}</td>
+                                <td>{{ 'Opłacone' if rezerwacja.oplacony else 'Nieopłacone' }}</td>
+                                <td>
+                                    {% if not rezerwacja.oplacony %}
+                                        <form method="POST" action="{{ url_for('cancel_reservation', rezerwacja_id=rezerwacja.id_rezerwacji) }}" style="display:inline;">
+                                            <button type="submit" class="button button-delete" onclick="return confirm('Czy na pewno chcesz anulować tę rezerwację?')">Anuluj</button>
+                                        </form>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            {% else %}
+                <p>Brak rezerwacji.</p>
+            {% endif %}
+            <a href="{{ url_for('home') }}" class="button">Wróć</a>
+        </section>
+    </main>
+
+    <script src="{{ url_for('static', filename='styles/js/main.js') }}"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const messages = {{ messages | tojson }};
+            messages.forEach(function(message) {
+                Swal.fire({
+                    icon: message.category === 'success' ? 'success' : 'error',
+                    title: message.category === 'success' ? 'Sukces' : 'Błąd',
+                    text: message.content,
+                    confirmButtonText: 'OK'
+                });
+            });
+        });
+    </script>
 </body>
 </html>
