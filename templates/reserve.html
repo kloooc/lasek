@@ -1,8 +1,210 @@
 <!DOCTYPE html>
-<html lang="pl">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Rezerwacja Stolika</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rezerwacja Stolika - Silver Leaf</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f0f2f5;
+            color: #333;
+        }
+        .navbar {
+            background-color: #2c3e50;
+            padding: 15px;
+            color: white;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+        }
+        .navbar a {
+            color: white;
+            text-decoration: none;
+            margin: 0 10px;
+            font-size: 16px;
+        }
+        .navbar a:hover {
+            text-decoration: underline;
+            color: #ecf0f1;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 20px auto;
+            padding: 20px;
+            background: url('/static/restaurant-background.jpg') no-repeat center center;
+            background-size: cover;
+            border-radius: 10px;
+            box-shadow: 0 0 15px rgba(0, 0, 0, 0.1);
+            position: relative;
+            overflow: hidden;
+        }
+        h2 {
+            text-align: center;
+            color: #ffffff;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+            margin-bottom: 20px;
+            font-size: 28px;
+        }
+        .date-section {
+            text-align: center;
+            margin-bottom: 30px;
+            background: rgba(255, 255, 255, 0.8);
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        .date-section label {
+            font-size: 18px;
+            margin-right: 10px;
+            color: #2c3e50;
+        }
+        .date-section input[type="date"], .date-section select {
+            padding: 10px;
+            font-size: 16px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            margin-right: 10px;
+            background-color: #fff;
+        }
+        .date-section button {
+            padding: 10px 25px;
+            background-color: #2c3e50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.3s;
+        }
+        .date-section button:hover {
+            background-color: #34495e;
+        }
+        .room-layout {
+            display: none;
+            position: relative;
+            height: 600px; /* Dopasuj do wysokości tła */
+            width: 100%;
+            margin-bottom: 20px;
+            padding: 20px;
+        }
+        .room-layout.visible {
+            display: block;
+        }
+        .table {
+            position: absolute;
+            width: 50px; /* Mniejszy rozmiar */
+            height: 50px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.3s;
+            background: url('/static/table_icon.png') no-repeat center center;
+            background-size: contain;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+        .table.unavailable {
+            filter: grayscale(100%);
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+        .table.available {
+            cursor: pointer;
+        }
+        .table.selected {
+            box-shadow: 0 0 15px rgba(46, 204, 113, 0.8);
+            border: 2px solid #2ecc71; /* Dodaj wyraźną ramkę dla widoczności */
+            z-index: 10;
+        }
+        .table.available:hover {
+            transform: scale(1.05);
+        }
+        .table span {
+            background: rgba(255, 255, 255, 0.9);
+            padding: 3px 6px;
+            border-radius: 5px;
+            font-size: 8px;
+            margin-top: 5px;
+            color: #2c3e50;
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.2);
+        }
+        /* Pozycje stolików - dostosuj według tła */
+        .table-1 { top: 10.7%; left: 13.5%; }
+        .table-2 { top: 28%; left: 13.5%; } /* 168 / 600 * 100 */
+        .table-3 { top: 45.33%; left: 13.5%; } /* 278 / 600 * 100 */
+        .table-4 { top: 62.67%; left: 13.5%; } /* 388 / 600 * 100 */
+        .table-5 { top: 6.5%; left: 25%; } /* 33 / 600 * 100, 288 / 1200 * 100 */
+        .table-6 { top: 21.17%; left: 25%; } /* 127 / 600 * 100 */
+        .table-7 { top: 6.5%; left: 37.58%; } /* 33 / 600 * 100, 445 / 1200 * 100 */
+        .table-8 { top: 21.17%; left: 37.78%; } /* 127 / 600 * 100 */
+        .table-9 { top: 55.67%; left: 25.25%; } /* 343 / 600 * 100, 295 / 1200 * 100 */
+        .table-10 { top: 55.67%; left: 37.35%; } /* 343 / 600 * 100 */
+        .table-11 { top: 55.67%; left: 49.45%; } /* 343 / 600 * 100, 597 / 1200 * 100 */
+        .table-12 { top: 48.33%; left: 78.4%; } /* 293 / 600 * 100, 960 / 1200 * 100 */
+        .table-13 { top: 67.50%; left: 74.32%; } /* 415 / 600 * 100, 905 / 1200 * 100 */
+        .table-14 { top: 67.50%; left: 83.18%; } /* 415 / 600 * 100, 1015 / 1200 * 100 */
+        .form-section {
+            display: none;
+            text-align: center;
+            margin-top: 20px;
+        }
+        .form-section.visible {
+            display: block;
+            position: absolute;
+            bottom: 10px; /* Odległość od dolnej krawędzi */
+            left: 50%;
+            transform: translateX(-50%); /* Wyśrodkowanie tylko w poziomie */
+            background: rgba(255, 255, 255, 0.9);
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+            z-index: 20; /* Wyżej niż stoliki */
+        }
+        .form-section button {
+            padding: 12px 30px;
+            background-color: #27ae60;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.3s;
+        }
+        .form-section button:hover {
+            background-color: #2ecc71;
+        }
+        .back-link {
+            display: block;
+            text-align: center;
+            margin-top: 20px;
+            color: #3498db;
+            text-decoration: none;
+            font-size: 16px;
+        }
+        .back-link:hover {
+            text-decoration: underline;
+            color: #2980b9;
+        }
+        .attribution {
+            font-size: 12px;
+            text-align: center;
+            margin-top: 10px;
+            color: #7f8c8d;
+        }
+        .attribution a {
+            color: #3498db;
+            text-decoration: none;
+        }
+        .attribution a:hover {
+            text-decoration: underline;
+        }
+    </style>
     <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='styles/css/styles.css') }}">
     <link href='https://cdn.jsdelivr.net/npm/boxicons@2.0.5/css/boxicons.min.css' rel='stylesheet'>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
@@ -18,46 +220,149 @@
                         {% if current_user.status == 'admin' %}
                             <li class="nav__item"><a href="{{ url_for('admin') }}" class="nav__link">Panel Admina</a></li>
                         {% endif %}
-                        <li class="nav__item"><a href="{{ url_for('my_reservations') }}" class="nav__link">Moje Rezerwacje</a></li>
+                        <li class="nav__item"><a href="{{ url_for('my_reservations') }}" class="nav__link active-link">Moje Rezerwacje</a></li>
                         <li class="nav__item"><a href="{{ url_for('logout') }}" class="nav__link">Wyloguj</a></li>
                     {% else %}
                         <li class="nav__item"><a href="{{ url_for('login') }}" class="nav__link">Log in</a></li>
                         <li class="nav__item"><a href="{{ url_for('register_page') }}" class="nav__link">Register</a></li>
                     {% endif %}
+                    <li><i class='bx bx-moon change-theme' id="theme-button"></i></li>
                 </ul>
+            </div>
+            <div class="nav__toggle" id="nav-toggle">
+                <i class='bx bx-menu'></i>
             </div>
         </nav>
     </header>
 
-    <main class="l-main">
-        <section class="section bd-container">
-            <h1>Rezerwacja Stolika</h1>
-            <form method="POST">
-                <label>Wybierz stolik:</label><br>
-                <select name="stolik_id" required>
-                    {% for stolik in stoliki %}
-                        <option value="{{ stolik.id_stolika }}">Stolik {{ stolik.id_stolika }} ({{ stolik.ilosc_miejsc }} miejsc)</option>
-                    {% endfor %}
-                </select><br>
-                <label>Data i godzina:</label><br>
-                <input type="datetime-local" name="data" required><br>
-                <button type="submit" class="button">Zarezerwuj</button>
-            </form>
-            <a href="{{ url_for('home') }}" class="button">Wróć</a>
-        </section>
-    </main>
+    <div class="container">
+        <h2>Rezerwacja Stolika</h2>
+        <div class="date-section">
+            <label for="reservation-date">Wybierz datę:</label>
+            <input type="date" id="reservation-date" required min="{{ '%04d-%02d-%02d' % (now.year, now.month, now.day) }}">
+            <label for="reservation-hour">Wybierz godzinę:</label>
+            <select id="reservation-hour" required>
+                {% for h in range(15, 24) %}
+                    <option value="{{ '%02d' % h }}">{{ '%02d:00' % h }}</option>
+                {% endfor %}
+            </select>
+            <button type="button" onclick="fetchAvailableTables()">Pokaż stoliki</button>
+        </div>
 
-    <script src="{{ url_for('static', filename='styles/js/main.js') }}"></script>
+        <div class="room-layout" id="room-layout"></div>
+
+        <form method="POST" action="{{ url_for('reserve') }}" id="reservation-form" class="form-section">
+            <input type="hidden" name="stolik_id" id="stolik_id">
+            <input type="hidden" name="date" id="date">
+            <input type="hidden" name="hour" id="hour">
+            <button type="submit">Zarezerwuj</button>
+        </form>
+
+        <a href="{{ url_for('home') }}" class="back-link">Wróć</a>
+
+
+    </div>
+
     <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            const messages = {{ messages | tojson }};
-            messages.forEach(function(message) {
-                Swal.fire({
-                    icon: message.category === 'success' ? 'success' : 'error',
-                    title: message.category === 'success' ? 'Sukces' : 'Błąd',
-                    text: message.content,
-                    confirmButtonText: 'OK'
+        function fetchAvailableTables() {
+        const dateInput = document.getElementById('reservation-date');
+        const hourInput = document.getElementById('reservation-hour');
+        const roomLayout = document.getElementById('room-layout');
+        const formSection = document.querySelector('.form-section');
+        const stolikIdInput = document.getElementById('stolik_id');
+        const dateHidden = document.getElementById('date');
+        const hourHidden = document.getElementById('hour');
+
+        if (!dateInput.value || !hourInput.value) {
+            alert('Proszę wybrać datę i godzinę!');
+            return;
+        }
+
+        const selectedDate = dateInput.value;
+        const selectedHour = hourInput.value;
+        const now = new Date();
+        const minDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const chosenDate = new Date(selectedDate + 'T' + selectedHour + ':00');
+        if (chosenDate < minDate) {
+            alert('Nie można wybrać daty z przeszłości!');
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append('date', selectedDate);
+        formData.append('hour', selectedHour);
+
+        fetch('{{ url_for("get_available_tables") }}', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                if (!roomLayout.hasChildNodes()) {
+                    data.tables.forEach(table => {
+                        const tableDiv = document.createElement('div');
+                        tableDiv.classList.add('table', `table-${table.id_stolika}`);
+                        tableDiv.dataset.id = table.id_stolika;
+                        tableDiv.dataset.seats = table.ilosc_miejsc;
+                        tableDiv.innerHTML = `
+                            <span>Stolik ${table.id_stolika}</span>
+                            <span>${table.ilosc_miejsc} miejsc</span>
+                        `;
+                        roomLayout.appendChild(tableDiv);
+                    });
+                }
+
+                data.tables.forEach(table => {
+                    const tableDiv = roomLayout.querySelector(`.table-${table.id_stolika}`);
+                    tableDiv.classList.remove('available', 'unavailable', 'selected');
+                    if (table.available) {
+                        tableDiv.classList.add('available');
+                        tableDiv.onclick = () => {
+                            document.querySelectorAll('.table').forEach(t => t.classList.remove('selected'));
+                            tableDiv.classList.add('selected');
+                            stolikIdInput.value = table.id_stolika;
+                            dateHidden.value = selectedDate;
+                            hourHidden.value = selectedHour;
+                            formSection.classList.add('visible');
+                        };
+                    } else {
+                        tableDiv.classList.add('unavailable');
+                        tableDiv.onclick = null;
+                    }
                 });
+
+                // Ukryj formularz po kliknięciu "Pokaż stoliki"
+                formSection.classList.remove('visible');
+                stolikIdInput.value = '';
+                dateHidden.value = '';
+                hourHidden.value = '';
+                roomLayout.classList.add('visible');
+            } else {
+                alert(data.message);
+            }
+        })
+        .catch(error => {
+            alert('Wystąpił błąd: ' + error.message);
+        });
+    }
+
+        document.getElementById('reservation-form').addEventListener('submit', function(event) {
+            event.preventDefault();
+            const formData = new FormData(this);
+            fetch('{{ url_for("reserve") }}', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                alert(data.message);
+                if (data.status === 'success' && data.redirect) {
+                    window.location.href = data.redirect;
+                }
+            })
+            .catch(error => {
+                alert('Wystąpił błąd podczas rezerwacji: ' + error.message);
             });
         });
     </script>

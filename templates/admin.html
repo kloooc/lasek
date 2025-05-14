@@ -105,19 +105,40 @@
                         <tr>
                             <th>Stolik</th>
                             <th>Ilość miejsc</th>
-                            <th>Status</th>
+                            <th>Akcje</th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for stolik in stoliki %}
-                            <tr>
+                            <tr class="table-row" data-table-id="{{ stolik.id_stolika }}">
                                 <td>Stolik {{ stolik.id_stolika }}</td>
                                 <td>{{ stolik.ilosc_miejsc }}</td>
-                                <td>{{ 'Wolny' if stolik.wolny else 'Zajęty' }}</td>
+                                <td>
+                                    <a href="#" onclick="showEditForm({{ stolik.id_stolika }}, {{ stolik.ilosc_miejsc }}); return false;" class="button">Edytuj</a>
+                                    <form method="POST" action="{{ url_for('delete_table', table_id=stolik.id_stolika) }}" style="display:inline;">
+                                        <button type="submit" class="button button-delete" onclick="return confirm('Czy na pewno chcesz usunąć stolik {{ stolik.id_stolika }}?')">Usuń</button>
+                                    </form>
+                                </td>
                             </tr>
                         {% endfor %}
                     </tbody>
                 </table>
+
+                <div id="edit-form" style="display:none; margin-top: 20px;">
+                    <h3>Edytuj Stolik</h3>
+                    <form id="edit-table-form" method="POST" action="{{ url_for('edit_table') }}">
+                        <input type="hidden" name="table_id" id="edit-table-id">
+                        <label for="seats">Ilość miejsc:</label>
+                        <input type="number" name="seats" id="edit-seats" min="1" required>
+                        <button type="submit" class="button">Zapisz</button>
+                        <button type="button" class="button button-delete" onclick="hideEditForm()">Anuluj</button>
+                    </form>
+                </div>
+
+                <h3>Rezerwacje dla wybranego stolika</h3>
+                <div id="table-reservations">
+                    <p>Wybierz stolik, aby zobaczyć rezerwacje.</p>
+                </div>
             {% else %}
                 <p>Brak stolików.</p>
             {% endif %}
@@ -136,6 +157,83 @@
                     title: message.category === 'success' ? 'Sukces' : 'Błąd',
                     text: message.content,
                     confirmButtonText: 'OK'
+                });
+            });
+
+            // Obsługa kliknięcia w wiersz stolika
+            document.querySelectorAll('.table-row').forEach(row => {
+                row.addEventListener('click', function(e) {
+                    // Zapobiegaj wywoływaniu zdarzenia, jeśli kliknięto link lub przycisk
+                    if (e.target.tagName === 'A' || e.target.tagName === 'BUTTON') return;
+
+                    const tableId = this.dataset.tableId;
+                    fetch(`/admin/get_table_reservations/${tableId}`, {
+                        method: 'GET'
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        const reservationsDiv = document.getElementById('table-reservations');
+                        if (data.status === 'success' && data.reservations.length > 0) {
+                            let html = '<table class="reservations-table"><thead><tr><th>Użytkownik</th><th>Data i godzina</th><th>Status płatności</th></tr></thead><tbody>';
+                            data.reservations.forEach(res => {
+                                html += `<tr>
+                                    <td>${res.id_user}</td>
+                                    <td>${res.data}</td>
+                                    <td>${res.oplacony ? 'Opłacone' : 'Nieopłacone'}</td>
+                                </tr>`;
+                            });
+                            html += '</tbody></table>';
+                            reservationsDiv.innerHTML = html;
+                        } else {
+                            reservationsDiv.innerHTML = '<p>Brak rezerwacji dla tego stolika.</p>';
+                        }
+                    })
+                    .catch(error => {
+                        document.getElementById('table-reservations').innerHTML = '<p>Wystąpił błąd: ' + error.message + '</p>';
+                    });
+                });
+            });
+
+            // Funkcje do obsługi formularza edycji
+            function showEditForm(tableId, seats) {
+                document.getElementById('edit-table-id').value = tableId;
+                document.getElementById('edit-seats').value = seats;
+                document.getElementById('edit-form').style.display = 'block';
+            }
+
+            function hideEditForm() {
+                document.getElementById('edit-form').style.display = 'none';
+                document.getElementById('edit-table-form').reset();
+            }
+
+            // Obsługa formularza edycji przez AJAX
+            document.getElementById('edit-table-form').addEventListener('submit', function(e) {
+                e.preventDefault();
+                const formData = new FormData(this);
+                fetch('{{ url_for("edit_table") }}', {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => response.json())
+                .then(data => {
+                    Swal.fire({
+                        icon: data.status === 'success' ? 'success' : 'error',
+                        title: data.status === 'success' ? 'Sukces' : 'Błąd',
+                        text: data.message,
+                        confirmButtonText: 'OK'
+                    }).then(() => {
+                        if (data.status === 'success' && data.redirect) {
+                            window.location.href = data.redirect;
+                        }
+                    });
+                })
+                .catch(error => {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Błąd',
+                        text: 'Wystąpił błąd: ' + error.message,
+                        confirmButtonText: 'OK'
+                    });
                 });
             });
         });

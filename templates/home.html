@@ -19,7 +19,6 @@
                         {% if current_user.status == 'admin' %}
                             <li class="nav__item"><a href="{{ url_for('admin') }}" class="nav__link">Panel Admina</a></li>
                         {% endif %}
-                        <li class="nav__item"><a href="{{ url_for('my_reservations') }}" class="nav__link">Moje Rezerwacje</a></li>
                         <li class="nav__item"><a href="{{ url_for('logout') }}" class="nav__link">Wyloguj</a></li>
                     {% else %}
                         <li class="nav__item"><a href="{{ url_for('login') }}" class="nav__link">Log in</a></li>
@@ -43,7 +42,6 @@
                     <div class="home__data">
                         <h1 class="home__title">Welcome!<br>Try our food</h1>
                         <h3 class="home__subtitle">Nothing brings people together like good food.</h3>
-                        <a href="{{ url_for('home') }}" class="button">View Menu</a>
                         <a href="{{ url_for('reserve') }}" class="button">Reserve Table</a>
                     </div>
 
