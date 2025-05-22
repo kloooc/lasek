@@ -16,6 +16,9 @@
                     <li class="nav__item"><a href="#home" class="nav__link active-link">Home</a></li>
                     <li class="nav__item"><a href="#about" class="nav__link">About</a></li>
                     {% if current_user.is_authenticated %}
+                        <script>
+                            localStorage.removeItem('notificationsRead');
+                        </script>
                         {% if current_user.status == 'admin' %}
                             <li class="nav__item"><a href="{{ url_for('admin') }}" class="nav__link">Panel Admina</a></li>
                         {% endif %}
@@ -25,6 +28,23 @@
                         <li class="nav__item"><a href="{{ url_for('register_page') }}" class="nav__link">Register</a></li>
                     {% endif %}
                     <li class="nav__item"><a href="#contact" class="nav__link">Contact us</a></li>
+                    {% set reminders = messages|selectattr("category", "equalto", "reminder")|list %}
+                    <li class="nav__item" style="position: relative; cursor: pointer;" id="notification-icon">
+                        <i class='bx bx-bell'></i>
+                        {% if reminders|length > 0 %}
+                            <span id="notification-count" style="position: absolute; top: 0; right: 0; background: red; color: white; font-size: 12px; border-radius: 50%; padding: 0 6px;">
+                                {{ reminders|length }}
+                            </span>
+                        {% endif %}
+                        <!-- Dropdown z przypomnieniami -->
+                        <div id="notification-dropdown" style="display: none; position: absolute; top: 30px; right: 0; background: white; border: 1px solid #ccc; border-radius: 5px; width: 280px; box-shadow: 0 2px 6px rgba(0,0,0,0.2); z-index: 1000; max-height: 300px; overflow-y: auto;">
+                            {% for r in reminders %}
+                                <div style="padding: 10px; border-bottom: 1px solid #eee; font-size: 14px;">
+                                    🔔 {{ r.content }}
+                                </div>
+                            {% endfor %}
+                        </div>
+                    </li>
                     <li><i class='bx bx-moon change-theme' id="theme-button"></i></li>
                 </ul>
             </div>
@@ -142,6 +162,37 @@
                 });
             });
         });
+        document.addEventListener("DOMContentLoaded", function() {
+        const icon = document.getElementById('notification-icon');
+        const dropdown = document.getElementById('notification-dropdown');
+        const count = document.getElementById('notification-count');
+
+        if (!icon) return;
+
+        // Jeśli już czytane - ukryj licznik i dropdown
+        if (localStorage.getItem('notificationsRead')) {
+            if(count) count.style.display = 'none';
+            dropdown.style.display = 'none';
+        }
+
+        icon.addEventListener('click', () => {
+            if (dropdown.style.display === 'none') {
+                dropdown.style.display = 'block';
+                // Zaznacz jako przeczytane
+                localStorage.setItem('notificationsRead', 'true');
+                if(count) count.style.display = 'none';
+            } else {
+                dropdown.style.display = 'none';
+            }
+        });
+
+        // Kliknięcie poza dropdown ukrywa go
+        document.addEventListener('click', (event) => {
+            if (!icon.contains(event.target)) {
+                dropdown.style.display = 'none';
+            }
+        });
+    });
     </script>
 </body>
 </html>

@@ -1,3 +1,4 @@
+import paypalrestsdk
 from flask import Flask, request, jsonify, redirect, url_for, render_template
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
@@ -7,13 +8,22 @@ from wtforms import StringField, PasswordField, SubmitField, SelectField
 from wtforms.validators import Length, EqualTo, Email, DataRequired, ValidationError
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy import and_
+from datetime import datetime, timedelta
 from uuid import uuid4
+import paypalrestsdk
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = '1231231321'
-app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql://root:bazahaslo@localhost/system_rezerwacji'
+app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://root:bazahaslo@localhost/system_rezerwacji'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
+
+# Konfiguracja PayPal (zastąp kluczami z Twojego konta PayPal)
+paypalrestsdk.configure({
+    "mode": "sandbox",  # Użyj "live" dla produkcji
+    "client_id": "ASjyr4bpQyd4KcNcc3k9XBmGXIxG_yG6Io22_wobTmAMJhtIYTjM7oH_nkdNqLxUrl-73WCePmEJIuP3",
+    "client_secret": "EIBeFnUG6fqg1h6Ifd3vNRqUF5Xu88DLyuFTBGIsg7v_SKAE27BCw4ROSw7A_JKNMEnRmv5AjA1LOcXx"
+})
 
 login_manager = LoginManager()
 login_manager.init_app(app)
@@ -97,9 +107,29 @@ def login():
         attempted_user = Uzytkownik.query.filter_by(email=forml.email.data).first()
         if attempted_user and attempted_user.password == forml.password.data:
             login_user(attempted_user)
+
+            # Sprawdzanie rezerwacji na jutro
+            tomorrow_start = datetime.now() + timedelta(days=1)
+            tomorrow_start = tomorrow_start.replace(hour=0, minute=0, second=0, microsecond=0)
+            tomorrow_end = tomorrow_start.replace(hour=23, minute=59, second=59)
+
+            rezerwacje_jutro = Rezerwacja.query.filter(
+                Rezerwacja.id_user == attempted_user.id_user,
+                Rezerwacja.data >= tomorrow_start,
+                Rezerwacja.data <= tomorrow_end
+            ).all()
+
+            if rezerwacje_jutro:
+                for r in rezerwacje_jutro:
+                    messages.append({
+                        'category': 'reminder',
+                        'content': f"🔔 Przypomnienie: Masz rezerwację stolika nr {r.id_stolika} na {r.data.strftime('%Y-%m-%d %H:%M')}"
+                    })
+
             if attempted_user.status == 'admin':
                 messages.append({'category': 'success', 'content': 'Zalogowano jako admin!'})
-                return render_template('admin.html', rezerwacje=Rezerwacja.query.all(), stoliki=Stolik.query.all(), uzytkownicy=Uzytkownik.query.all(), messages=messages)
+                return render_template('admin.html', rezerwacje=Rezerwacja.query.all(), stoliki=Stolik.query.all(),
+                                       uzytkownicy=Uzytkownik.query.all(), messages=messages)
             else:
                 messages.append({'category': 'success', 'content': 'Zalogowano pomyślnie!'})
                 return render_template('home.html', user=current_user, stoliki=Stolik.query.all(), messages=messages)
@@ -268,7 +298,91 @@ def cancel_reservation(rezerwacja_id):
         db.session.rollback()
         messages.append({'category': 'error', 'content': f'Błąd bazy danych: {str(e)}'})
     return render_template('my_reservations.html', rezerwacje=Rezerwacja.query.filter_by(id_user=current_user.id_user).all(), messages=messages)
+@app.route('/pay_reservation/<int:rezerwacja_id>')
+@login_required
+def pay_reservation(rezerwacja_id):
+    messages = []
+    rezerwacja = Rezerwacja.query.get_or_404(rezerwacja_id)
 
+    if rezerwacja.id_user != current_user.id_user:
+        messages.append({'category': 'error', 'content': 'Nie masz uprawnień do opłacenia tej rezerwacji!'})
+        return render_template('my_reservations.html', rezerwacje=Rezerwacja.query.filter_by(id_user=current_user.id_user).all(), messages=messages)
+
+    if rezerwacja.oplacony:
+        messages.append({'category': 'error', 'content': 'Ta rezerwacja jest już opłacona!'})
+        return render_template('my_reservations.html', rezerwacje=Rezerwacja.query.filter_by(id_user=current_user.id_user).all(), messages=messages)
+
+    try:
+        # Tworzenie płatności PayPal
+        payment = paypalrestsdk.Payment({
+            "intent": "sale",
+            "payer": {
+                "payment_method": "paypal"
+            },
+            "transactions": [{
+                "amount": {
+                    "total": "0.01",
+                    "currency": "PLN"
+                },
+                "description": f'Rezerwacja stolika {rezerwacja.id_stolika} na {rezerwacja.data.strftime("%Y-%m-%d %H:%M")}',
+                "custom": str(rezerwacja.id_rezerwacji)
+            }],
+            "redirect_urls": {
+                "return_url": url_for('payment_success', _external=True),
+                "cancel_url": url_for('payment_cancel', _external=True)
+            }
+        })
+
+        if payment.create():
+            rezerwacja.payment_intent_id = payment.id
+            db.session.commit()
+            for link in payment.links:
+                if link.rel == "approval_url":
+                    return redirect(link.href)
+        else:
+            messages.append({'category': 'error', 'content': 'Błąd podczas tworzenia płatności!'})
+            db.session.rollback()
+    except Exception as e:
+        db.session.rollback()
+        messages.append({'category': 'error', 'content': f'Błąd: {str(e)}'})
+
+    return render_template('my_reservations.html', rezerwacje=Rezerwacja.query.filter_by(id_user=current_user.id_user).all(), messages=messages)
+
+@app.route('/payment_success')
+@login_required
+def payment_success():
+    payment_id = request.args.get('paymentId')
+    payer_id = request.args.get('PayerID')
+    messages = []
+
+    if payment_id and payer_id:
+        payment = paypalrestsdk.Payment.find(payment_id)
+        payment = paypalrestsdk.Payment.find(payment_id)
+
+        if payment.execute({"payer_id": payer_id}):
+            # Odczytaj ID rezerwacji z pola custom
+            rezerwacja_id = payment['transactions'][0]['custom']
+            rezerwacja = Rezerwacja.query.get(rezerwacja_id)
+
+            if rezerwacja:
+                rezerwacja.oplacony = True
+                db.session.commit()
+                messages.append(
+                    {'category': 'success', 'content': 'Płatność została pomyślnie wykonana! Rezerwacja opłacona.'})
+            else:
+                messages.append({'category': 'error', 'content': 'Nie znaleziono rezerwacji o podanym ID!'})
+        else:
+            messages.append({'category': 'error', 'content': 'Błąd podczas finalizacji płatności!'})
+    else:
+        messages.append({'category': 'error', 'content': 'Brak wymaganych danych do finalizacji płatności!'})
+
+    return render_template('my_reservations.html', rezerwacje=Rezerwacja.query.filter_by(id_user=current_user.id_user).all(), messages=messages)
+
+@app.route('/payment_cancel')
+@login_required
+def payment_cancel():
+    messages = [{'category': 'error', 'content': 'Płatność została anulowana!'}]
+    return render_template('my_reservations.html', rezerwacje=Rezerwacja.query.filter_by(id_user=current_user.id_user).all(), messages=messages)
 # Endpointy - Panel Admina
 @app.route('/admin')
 @login_required

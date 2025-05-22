@@ -53,13 +53,19 @@
                             <tr>
                                 <td>Stolik {{ rezerwacja.id_stolika }} ({{ rezerwacja.stolik.ilosc_miejsc }} miejsc)</td>
                                 <td>{{ rezerwacja.data.strftime('%Y-%m-%d %H:%M') }}</td>
-                                <td>{{ 'Opłacone' if rezerwacja.oplacony else 'Nieopłacone' }}</td>
                                 <td>
-                                    {% if not rezerwacja.oplacony %}
-                                        <form method="POST" action="{{ url_for('cancel_reservation', rezerwacja_id=rezerwacja.id_rezerwacji) }}" style="display:inline;">
-                                            <button type="submit" class="button button-delete" onclick="return confirm('Czy na pewno chcesz anulować tę rezerwację?')">Anuluj</button>
-                                        </form>
-                                    {% endif %}
+                                {% if rezerwacja.oplacony %}
+                                    Opłacone
+                                {% else %}
+                                    Nieopłacone <a href="{{ url_for('pay_reservation', rezerwacja_id=rezerwacja.id_rezerwacji) }}">(Opłać)</a>
+                                {% endif %}
+                                </td>
+                                <td>
+                                {% if not rezerwacja.oplacony %}
+                                    <form action="{{ url_for('cancel_reservation', rezerwacja_id=rezerwacja.id_rezerwacji) }}" method="POST" style="display:inline;">
+                                        <button type="submit" onclick="return confirm('Czy na pewno chcesz anulować tę rezerwację?')">Anuluj</button>
+                                    </form>
+                                {% endif %}
                                 </td>
                             </tr>
                         {% endfor %}
