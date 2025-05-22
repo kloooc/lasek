@@ -2,7 +2,7 @@
 <html lang="pl">
 <head>
     <meta charset="UTF-8">
-    <title>Silver Leaf</title>
+    <title>Kociołek</title>
     <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='styles/css/styles.css') }}">
     <link href='https://cdn.jsdelivr.net/npm/boxicons@2.0.5/css/boxicons.min.css' rel='stylesheet'>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
@@ -10,11 +10,10 @@
 <body>
     <header class="l-header" id="header">
         <nav class="nav bd-container">
-            <a href="#" class="nav__logo"><h1>Silver Leaf.</h1></a>
+            <a href="#" class="nav__logo"><h1>Kociołek</h1></a>
             <div class="nav__menu" id="nav-menu">
                 <ul class="nav__list">
-                    <li class="nav__item"><a href="#home" class="nav__link active-link">Home</a></li>
-                    <li class="nav__item"><a href="#about" class="nav__link">About</a></li>
+                    <li class="nav__item"><a href="#home" class="nav__link active-link">Strona główna</a></li>
                     {% if current_user.is_authenticated %}
                         <script>
                             localStorage.removeItem('notificationsRead');
@@ -22,12 +21,16 @@
                         {% if current_user.status == 'admin' %}
                             <li class="nav__item"><a href="{{ url_for('admin') }}" class="nav__link">Panel Admina</a></li>
                         {% endif %}
+                        <li class="nav__item"><a href="#about" class="nav__link">O nas</a></li>
+                        <li class="nav__item"><a href="#contact" class="nav__link">Kontakt</a></li>
+                        <li class="nav__item"><a href="{{ url_for('my_reservations') }}" class="nav__link active-link">Moje Rezerwacje</a></li>
                         <li class="nav__item"><a href="{{ url_for('logout') }}" class="nav__link">Wyloguj</a></li>
                     {% else %}
-                        <li class="nav__item"><a href="{{ url_for('login') }}" class="nav__link">Log in</a></li>
-                        <li class="nav__item"><a href="{{ url_for('register_page') }}" class="nav__link">Register</a></li>
+                        <li class="nav__item"><a href="#about" class="nav__link">O nas</a></li>
+                        <li class="nav__item"><a href="#contact" class="nav__link">Kontakt</a></li>
+                        <li class="nav__item"><a href="{{ url_for('login') }}" class="nav__link">Zaloguj</a></li>
+                        <li class="nav__item"><a href="{{ url_for('register_page') }}" class="nav__link">Rejestracja</a></li>
                     {% endif %}
-                    <li class="nav__item"><a href="#contact" class="nav__link">Contact us</a></li>
                     {% set reminders = messages|selectattr("category", "equalto", "reminder")|list %}
                     <li class="nav__item" style="position: relative; cursor: pointer;" id="notification-icon">
                         <i class='bx bx-bell'></i>
@@ -56,13 +59,12 @@
 
 
         <main class="l-main">
-            <!--========== HOME ==========-->
             <section class="home" id="home">
                 <div class="home__container bd-container bd-grid">
                     <div class="home__data">
-                        <h1 class="home__title">Welcome!<br>Try our food</h1>
-                        <h3 class="home__subtitle">Nothing brings people together like good food.</h3>
-                        <a href="{{ url_for('reserve') }}" class="button">Reserve Table</a>
+                        <h1 class="home__title">Witamy!<br>Spróbuj naszej kuchni</h1>
+                        <h3 class="home__subtitle">Nic tak nie łączy ludzi jak dobre jedzenie.</h3>
+                        <a href="{{ url_for('reserve') }}" class="button">Zarezerwuj stolik</a>
                     </div>
 
                     <img src="{{url_for('static', filename='styles/img/home.png')}}" alt = "" class="home__img">
@@ -73,10 +75,10 @@
             <section class="about section bd-container" id="about">
                 <div class="about__container  bd-grid">
                     <div class="about__data">
-                        <span class="section-subtitle about__initial">About us</span>
-                        <h2 class="section-title about__initial">We cook the best <br> tasty food</h2>
-                        <p class="about__description">We cook the best food in the entire city, with excellent customer service, the best meals and at the best price, visit us.</p>
-                        <a href="#" class="button">Explore history</a>
+                        <span class="section-subtitle about__initial">O nas</span>
+                        <h2 class="section-title about__initial">Gotujemy najlepsze<br>i najsmaczniejsze dania</h2>
+                        <p class="about__description">Gotujemy najlepsze potrawy w całym mieście, z doskonałą obsługą klienta, pysznymi daniami i w najlepszych cenach – odwiedź nas!</p>
+                        <a href="#" class="button">Poznaj historię</a>
                     </div>
 
                     <img src="static/styles/img/about.jpg" alt="" class="about__img">
@@ -87,13 +89,14 @@
             <section class="contact section bd-container" id="contact">
                 <div class="contact__container bd-grid">
                     <div class="contact__data">
-                        <span class="section-subtitle contact__initial">Let's talk</span>
-                        <h2 class="section-title contact__initial">Contact us</h2>
-                        <p class="contact__description">We would love to hear from you!<br> For any queries, please contact us.<br>Feel free to contact and suggest the improvements that are required for this website</p>
+                        <span class="section-subtitle contact__initial">Porozmawiajmy</span>
+                        <h2 class="section-title contact__initial">Skontaktuj się z nami</h2>
+                        <p class="contact__description">Chętnie Cię wysłuchamy!<br>Masz pytania? Skontaktuj się z nami.<br>Jesteśmy otwarci na wszelkie sugestie dotyczące strony.</p>
+
                     </div>
 
                     <div class="contact__button">
-                        <a href="#" class="button">Contact us now</a>
+                        <a href="#" class="button">Skontaktuj się</a>
                     </div>
                 </div>
             </section>
@@ -103,8 +106,8 @@
         <footer class="footer section bd-container">
             <div class="footer__container bd-grid">
                 <div class="footer__content">
-                    <a href="#" class="footer__logo">Silver Leaf</a>
-                    <span class="footer__description">Restaurant</span>
+                    <a href="#" class="footer__logo">Kociołek</a>
+                    <span class="footer__description">Restauracja</span>
                     <div>
                         <a href="#" class="footer__social"><i class='bx bxl-facebook'></i></a>
                         <a href="#" class="footer__social"><i class='bx bxl-instagram'></i></a>
@@ -113,34 +116,32 @@
                 </div>
 
                 <div class="footer__content">
-                    <h3 class="footer__title">Services</h3>
+                    <h3 class="footer__title">Usługi</h3>
                     <ul>
-                        <li><a href="table.html" class="footer__link">Table Reservation</a></li>
+                        <li><a href="{{ url_for('reserve') }}" class="footer__link">Rezerwacja stolika</a></li>
                     </ul>
                 </div>
 
                 <div class="footer__content">
-                    <h3 class="footer__title">Information</h3>
+                    <h3 class="footer__title">Informacje</h3>
                     <ul>
-                        <li><a href="#" class="footer__link">Event</a></li>
-                        <li><a href="#" class="footer__link">Contact us</a></li>
-                        <li><a href="#" class="footer__link">Privacy policy</a></li>
-                        <li><a href="#" class="footer__link">Terms of services</a></li>
+                        <li><a href="#" class="footer__link">Wydarzenia</a></li>
+                        <li><a href="#" class="footer__link">Kontakt</a></li>
+                        <li><a href="#" class="footer__link">Polityka prywatności</a></li>
+                        <li><a href="#" class="footer__link">Regulamin</a></li>
                     </ul>
                 </div>
 
                 <div class="footer__content">
-                    <h3 class="footer__title">Address</h3>
+                    <h3 class="footer__title">Adres</h3>
                     <ul>
-                        <li>Park Street, Taltala</li>
-                        <li>Kolkata, West Bengal</li>
-                        <li>031-4281-7093</li>
-                        <li>silverleaf@gmail.com</li>
+                            <li>ul. Rejtana</li>
+                            <li>Rzeszów, Podkarpackie</li>
+                            <li>123 456 789</li>
+                            <li>adresmail@gmail.com</li>
                     </ul>
                 </div>
             </div>
-
-            <p class="footer__copy">&#169; 2021 Group-37. All rights reserved</p>
         </footer>
         <!--========== FOOTER ENDS ==========-->
 

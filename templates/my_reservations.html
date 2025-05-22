@@ -10,22 +10,40 @@
 <body>
     <header class="l-header" id="header">
         <nav class="nav bd-container">
-            <a href="{{ url_for('home') }}" class="nav__logo"><h1>Silver Leaf.</h1></a>
+            <a href="#" class="nav__logo"><h1>Kociołek</h1></a>
             <div class="nav__menu" id="nav-menu">
                 <ul class="nav__list">
-                    <li class="nav__item"><a href="{{ url_for('home') }}#home" class="nav__link">Home</a></li>
-                    <li class="nav__item"><a href="{{ url_for('home') }}#about" class="nav__link">About</a></li>
+                    <li class="nav__item"><a href="{{ url_for('home') }}" class="nav__link active-link">Strona główna</a></li>
                     {% if current_user.is_authenticated %}
+                        <script>
+                            localStorage.removeItem('notificationsRead');
+                        </script>
                         {% if current_user.status == 'admin' %}
                             <li class="nav__item"><a href="{{ url_for('admin') }}" class="nav__link">Panel Admina</a></li>
                         {% endif %}
                         <li class="nav__item"><a href="{{ url_for('my_reservations') }}" class="nav__link active-link">Moje Rezerwacje</a></li>
                         <li class="nav__item"><a href="{{ url_for('logout') }}" class="nav__link">Wyloguj</a></li>
                     {% else %}
-                        <li class="nav__item"><a href="{{ url_for('login') }}" class="nav__link">Log in</a></li>
-                        <li class="nav__item"><a href="{{ url_for('register_page') }}" class="nav__link">Register</a></li>
+                        <li class="nav__item"><a href="{{ url_for('login') }}" class="nav__link">Zaloguj</a></li>
+                        <li class="nav__item"><a href="{{ url_for('register_page') }}" class="nav__link">Rejestracja</a></li>
                     {% endif %}
-                    <li class="nav__item"><a href="{{ url_for('home') }}#contact" class="nav__link">Contact us</a></li>
+                    {% set reminders = messages|selectattr("category", "equalto", "reminder")|list %}
+                    <li class="nav__item" style="position: relative; cursor: pointer;" id="notification-icon">
+                        <i class='bx bx-bell'></i>
+                        {% if reminders|length > 0 %}
+                            <span id="notification-count" style="position: absolute; top: 0; right: 0; background: red; color: white; font-size: 12px; border-radius: 50%; padding: 0 6px;">
+                                {{ reminders|length }}
+                            </span>
+                        {% endif %}
+                        <!-- Dropdown z przypomnieniami -->
+                        <div id="notification-dropdown" style="display: none; position: absolute; top: 30px; right: 0; background: white; border: 1px solid #ccc; border-radius: 5px; width: 280px; box-shadow: 0 2px 6px rgba(0,0,0,0.2); z-index: 1000; max-height: 300px; overflow-y: auto;">
+                            {% for r in reminders %}
+                                <div style="padding: 10px; border-bottom: 1px solid #eee; font-size: 14px;">
+                                    🔔 {{ r.content }}
+                                </div>
+                            {% endfor %}
+                        </div>
+                    </li>
                     <li><i class='bx bx-moon change-theme' id="theme-button"></i></li>
                 </ul>
             </div>
@@ -34,6 +52,7 @@
             </div>
         </nav>
     </header>
+
 
     <main class="l-main">
         <section class="section bd-container">
@@ -76,6 +95,46 @@
             {% endif %}
             <a href="{{ url_for('home') }}" class="button">Wróć</a>
         </section>
+            <footer class="footer section bd-container">
+            <div class="footer__container bd-grid">
+                <div class="footer__content">
+                    <a href="#" class="footer__logo">Kociołek</a>
+                    <span class="footer__description">Restauracja</span>
+                    <div>
+                        <a href="#" class="footer__social"><i class='bx bxl-facebook'></i></a>
+                        <a href="#" class="footer__social"><i class='bx bxl-instagram'></i></a>
+                        <a href="#" class="footer__social"><i class='bx bxl-twitter'></i></a>
+                    </div>
+                </div>
+
+                <div class="footer__content">
+                    <h3 class="footer__title">Usługi</h3>
+                    <ul>
+                        <li><a href="{{ url_for('reserve') }}" class="footer__link">Rezerwacja stolika</a></li>
+                    </ul>
+                </div>
+
+                <div class="footer__content">
+                    <h3 class="footer__title">Informacje</h3>
+                    <ul>
+                        <li><a href="#" class="footer__link">Wydarzenia</a></li>
+                        <li><a href="#" class="footer__link">Kontakt</a></li>
+                        <li><a href="#" class="footer__link">Polityka prywatności</a></li>
+                        <li><a href="#" class="footer__link">Regulamin</a></li>
+                    </ul>
+                </div>
+
+                <div class="footer__content">
+                    <h3 class="footer__title">Adres</h3>
+                    <ul>
+                            <li>ul. Rejtana</li>
+                            <li>Rzeszów, Podkarpackie</li>
+                            <li>123 456 789</li>
+                            <li>adresmail@gmail.com</li>
+                    </ul>
+                </div>
+            </div>
+        </footer>
     </main>
 
     <script src="{{ url_for('static', filename='styles/js/main.js') }}"></script>

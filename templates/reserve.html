@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Rezerwacja Stolika - Silver Leaf</title>
+    <title>Rezerwacja Stolika - Kociołek</title>
     <style>
         body {
             font-family: 'Arial', sans-serif;
@@ -212,7 +212,7 @@
 <body>
     <header class="l-header" id="header">
         <nav class="nav bd-container">
-            <a href="{{ url_for('home') }}" class="nav__logo"><h1>Silver Leaf.</h1></a>
+            <a href="{{ url_for('home') }}" class="nav__logo"><h1>Kociołek</h1></a>
             <div class="nav__menu" id="nav-menu">
                 <ul class="nav__list">
                     <li class="nav__item"><a href="{{ url_for('home') }}#home" class="nav__link">Home</a></li>
@@ -262,6 +262,46 @@
 
 
     </div>
+    <footer class="footer section bd-container">
+            <div class="footer__container bd-grid">
+                <div class="footer__content">
+                    <a href="#" class="footer__logo">Kociołek</a>
+                    <span class="footer__description">Restauracja</span>
+                    <div>
+                        <a href="#" class="footer__social"><i class='bx bxl-facebook'></i></a>
+                        <a href="#" class="footer__social"><i class='bx bxl-instagram'></i></a>
+                        <a href="#" class="footer__social"><i class='bx bxl-twitter'></i></a>
+                    </div>
+                </div>
+
+                <div class="footer__content">
+                    <h3 class="footer__title">Usługi</h3>
+                    <ul>
+                        <li><a href="#" class="footer__link">Rezerwacja stolika</a></li>
+                    </ul>
+                </div>
+
+                <div class="footer__content">
+                    <h3 class="footer__title">Informacje</h3>
+                    <ul>
+                        <li><a href="#" class="footer__link">Wydarzenia</a></li>
+                        <li><a href="#" class="footer__link">Kontakt</a></li>
+                        <li><a href="#" class="footer__link">Polityka prywatności</a></li>
+                        <li><a href="#" class="footer__link">Regulamin</a></li>
+                    </ul>
+                </div>
+
+                <div class="footer__content">
+                    <h3 class="footer__title">Adres</h3>
+                    <ul>
+                            <li>ul. Rejtana</li>
+                            <li>Rzeszów, Podkarpackie</li>
+                            <li>123 456 789</li>
+                            <li>adresmail@gmail.com</li>
+                    </ul>
+                </div>
+            </div>
+        </footer>
 
     <script>
         function fetchAvailableTables() {

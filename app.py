@@ -4,6 +4,7 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 from datetime import datetime
 from flask_wtf import FlaskForm
+from flask_wtf.csrf import CSRFError, validate_csrf
 from wtforms import StringField, PasswordField, SubmitField, SelectField
 from wtforms.validators import Length, EqualTo, Email, DataRequired, ValidationError
 from sqlalchemy.exc import SQLAlchemyError
@@ -81,12 +82,27 @@ class UserForm(FlaskForm):
     def __init__(self, user_id=None, *args, **kwargs):
         super(UserForm, self).__init__(*args, **kwargs)
         self.user_id = user_id
+        # Jawnie ustaw domyślne wartości, jeśli obiekt jest przekazany
+        if 'obj' in kwargs and kwargs['obj']:
+            obj = kwargs['obj']
+            self.email.data = obj.email
+            self.imie.data = obj.imie
+            self.nazwisko.data = obj.nazwisko
+            self.status.data = obj.status
+
+    def validate_email(self, email):
+        if self.user_id:
+            existing_user = Uzytkownik.query.filter_by(email=email.data).filter(Uzytkownik.id_user != self.user_id).first()
+            if existing_user:
+                raise ValidationError('Ten adres e-mail jest już zarejestrowany.')
 
     def validate_status(self, status):
         if self.user_id:
             user = Uzytkownik.query.get(self.user_id)
             if user and user.status == 'admin' and status.data != 'admin':
                 raise ValidationError('Użytkownik z rolą admina nie może zmienić statusu na klient.')
+            if user and user.status != 'admin' and status.data == 'admin':
+                raise ValidationError('Nie można zmienić statusu na admina bez odpowiednich uprawnień.')
 
 @login_manager.user_loader
 def load_user(user_id):
@@ -127,9 +143,14 @@ def login():
                     })
 
             if attempted_user.status == 'admin':
+                uzytkownicy = Uzytkownik.query.all()
+                formy = {u.id_user: UserForm(user_id=u.id_user, obj=u) for u in uzytkownicy}
                 messages.append({'category': 'success', 'content': 'Zalogowano jako admin!'})
-                return render_template('admin.html', rezerwacje=Rezerwacja.query.all(), stoliki=Stolik.query.all(),
-                                       uzytkownicy=Uzytkownik.query.all(), messages=messages)
+                return render_template('admin.html', rezerwacje=Rezerwacja.query.all(),
+                           stoliki=Stolik.query.all(),
+                           uzytkownicy=uzytkownicy,
+                           messages=messages,
+                           formy=formy)
             else:
                 messages.append({'category': 'success', 'content': 'Zalogowano pomyślnie!'})
                 return render_template('home.html', user=current_user, stoliki=Stolik.query.all(), messages=messages)
@@ -387,15 +408,15 @@ def payment_cancel():
 @app.route('/admin')
 @login_required
 def admin():
+    rezerwacje = Rezerwacja.query.all()
+    stoliki = Stolik.query.all()
+    uzytkownicy = Uzytkownik.query.all()
+    formy = {u.id_user: UserForm(user_id=u.id_user, obj=u) for u in uzytkownicy}
     messages = []
     if current_user.status != 'admin':
         messages.append({'category': 'error', 'content': 'Brak uprawnień do panelu admina!'})
         return render_template('home.html', user=current_user, stoliki=Stolik.query.all(), messages=messages)
-    rezerwacje = Rezerwacja.query.all()
-    stoliki = Stolik.query.all()
-    uzytkownicy = Uzytkownik.query.all()
-    return render_template('admin.html', rezerwacje=rezerwacje, stoliki=stoliki, uzytkownicy=uzytkownicy, messages=messages)
-
+    return render_template('admin.html', rezerwacje=rezerwacje, stoliki=stoliki, uzytkownicy=uzytkownicy, messages=messages, formy=formy)
 @app.route('/mark_paid/<int:rezerwacja_id>')
 @login_required
 def mark_paid(rezerwacja_id):
@@ -412,54 +433,131 @@ def mark_paid(rezerwacja_id):
         messages.append({'category': 'error', 'content': 'Rezerwacja nie istnieje!'})
     return render_template('admin.html', rezerwacje=Rezerwacja.query.all(), stoliki=Stolik.query.all(), uzytkownicy=Uzytkownik.query.all(), messages=messages)
 
+
+from flask import request, jsonify, render_template, url_for
+from flask_login import login_required, current_user
+from sqlalchemy.exc import SQLAlchemyError
+
 @app.route('/admin/edit_user/<int:user_id>', methods=['GET', 'POST'])
 @login_required
 def edit_user(user_id):
-    messages = []
     if current_user.status != 'admin':
-        messages.append({'category': 'error', 'content': 'Brak uprawnień!'})
+        messages = [{'category': 'error', 'content': 'Brak uprawnień do edycji użytkowników!'}]
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return jsonify({'status': 'error', 'message': 'Brak uprawnień!'}), 403
         return render_template('home.html', user=current_user, stoliki=Stolik.query.all(), messages=messages)
+
     user = Uzytkownik.query.get_or_404(user_id)
-    form = UserForm(user_id=user_id, obj=user)
+    form = UserForm(user_id=user_id)
+
+    if request.method == 'POST':
+        print(f"Raw POST data: {request.form}")
+        form = UserForm(user_id=user_id, formdata=request.form)
+        print(f"Form data received: {form.data}")
+        print(f"Form errors: {form.errors}")
+        print(f"Form validated: {form.validate_on_submit()}")
+
     if form.validate_on_submit():
         try:
             existing_user = Uzytkownik.query.filter_by(email=form.email.data).filter(Uzytkownik.id_user != user_id).first()
             if existing_user:
-                messages.append({'category': 'error', 'content': 'Ten adres e-mail jest już zarejestrowany!'})
+                if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                    return jsonify({'status': 'error', 'message': 'Ten adres e-mail jest już zarejestrowany!'}), 400
+                messages = [{'category': 'error', 'content': 'Ten adres e-mail jest już zarejestrowany!'}]
                 return render_template('edit_user.html', form=form, user=user, messages=messages)
+
+            print(f"Before update: User {user.id_user} - email={user.email}, imie={user.imie}, nazwisko={user.nazwisko}, status={user.status}")
             user.email = form.email.data
             user.imie = form.imie.data
             user.nazwisko = form.nazwisko.data
-            user.status = form.status.data
+            if user.status != 'admin':
+                user.status = form.status.data
+
             db.session.commit()
-            messages.append({'category': 'success', 'content': 'Dane użytkownika zostały zaktualizowane!'})
-            return render_template('admin.html', rezerwacje=Rezerwacja.query.all(), stoliki=Stolik.query.all(), uzytkownicy=Uzytkownik.query.all(), messages=messages)
+            print(f"After update: User {user.id_user} - email={user.email}, imie={user.imie}, nazwisko={user.nazwisko}, status={user.status}")
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return jsonify({'status': 'success', 'message': 'Dane użytkownika zostały zaktualizowane!', 'redirect': url_for('admin')})
+            messages = [{'category': 'success', 'content': 'Dane użytkownika zostały zaktualizowane!'}]
+            return render_template('admin.html', rezerwacje=Rezerwacja.query.all(), stoliki=Stolik.query.all(),
+                                  uzytkownicy=Uzytkownik.query.all(), messages=messages, formy={u.id_user: UserForm(user_id=u.id_user, obj=u) for u in Uzytkownik.query.all()})
         except SQLAlchemyError as e:
             db.session.rollback()
-            messages.append({'category': 'error', 'content': f'Błąd bazy danych: {str(e)}'})
+            print(f"Database error: {str(e)}")
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return jsonify({'status': 'error', 'message': f'Błąd bazy danych: {str(e)}'}), 500
+            messages = [{'category': 'error', 'content': f'Błąd bazy danych: {str(e)}'}]
+            return render_template('edit_user.html', form=form, user=user, messages=messages)
+    else:
+        if request.method == 'POST' and request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            errors = {field: [str(e) for e in errs] for field, errs in form.errors.items()}
+            print(f"Validation errors: {errors}")
+            return jsonify({'status': 'error', 'message': 'Błąd walidacji', 'errors': errors}), 400
+        if request.method == 'POST':
+            messages = [{'category': 'error', 'content': f'Błąd walidacji: {form.errors}'}]
+        else:
+            messages = []
+            # Wypełnij formularz danymi użytkownika dla GET
+            form.email.data = user.email
+            form.imie.data = user.imie
+            form.nazwisko.data = user.nazwisko
+            form.status.data = user.status
+
     return render_template('edit_user.html', form=form, user=user, messages=messages)
+
 
 @app.route('/admin/delete_user/<int:user_id>', methods=['POST'])
 @login_required
 def delete_user(user_id):
-    messages = []
     if current_user.status != 'admin':
-        messages.append({'category': 'error', 'content': 'Brak uprawnień!'})
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return jsonify({'status': 'error', 'message': 'Brak uprawnień!'}), 403
+        messages = [{'category': 'error', 'content': 'Brak uprawnień do usuwania użytkowników!'}]
         return render_template('home.html', user=current_user, stoliki=Stolik.query.all(), messages=messages)
+
     user = Uzytkownik.query.get_or_404(user_id)
+
+    # Nie pozwalaj na usunięcie własnego konta
     if user.id_user == current_user.id_user:
-        messages.append({'category': 'error', 'content': 'Nie możesz usunąć własnego konta!'})
-        return render_template('admin.html', rezerwacje=Rezerwacja.query.all(), stoliki=Stolik.query.all(), uzytkownicy=Uzytkownik.query.all(), messages=messages)
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return jsonify({'status': 'error', 'message': 'Nie możesz usunąć własnego konta!'}), 400
+        messages = [{'category': 'error', 'content': 'Nie możesz usunąć własnego konta!'}]
+        return render_template('admin.html', rezerwacje=Rezerwacja.query.all(), stoliki=Stolik.query.all(),
+                               uzytkownicy=Uzytkownik.query.all(), messages=messages,
+                               formy={u.id_user: UserForm(user_id=u.id_user, obj=u) for u in Uzytkownik.query.all()})
+
     try:
-        Rezerwacja.query.filter_by(id_user=user_id).delete()
+        # Weryfikacja tokenu CSRF
+        csrf_token = request.json.get('csrf_token')
+        validate_csrf(csrf_token)
+
+        print(f"Deleting user {user.id_user} - email={user.email}")
         db.session.delete(user)
         db.session.commit()
-        messages.append({'category': 'success', 'content': f'Użytkownik {user.email} został usunięty!'})
+        print(f"User {user.id_user} deleted successfully")
+
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return jsonify(
+                {'status': 'success', 'message': 'Użytkownik został usunięty!', 'redirect': url_for('admin')})
+        messages = [{'category': 'success', 'content': 'Użytkownik został usunięty!'}]
+        return render_template('admin.html', rezerwacje=Rezerwacja.query.all(), stoliki=Stolik.query.all(),
+                               uzytkownicy=Uzytkownik.query.all(), messages=messages,
+                               formy={u.id_user: UserForm(user_id=u.id_user, obj=u) for u in Uzytkownik.query.all()})
+    except CSRFError:
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return jsonify({'status': 'error', 'message': 'Nieprawidłowy token CSRF!'}), 400
+        messages = [{'category': 'error', 'content': 'Nieprawidłowy token CSRF!'}]
+        return render_template('admin.html', rezerwacje=Rezerwacja.query.all(), stoliki=Stolik.query.all(),
+                               uzytkownicy=Uzytkownik.query.all(), messages=messages,
+                               formy={u.id_user: UserForm(user_id=u.id_user, obj=u) for u in Uzytkownik.query.all()})
     except SQLAlchemyError as e:
         db.session.rollback()
-        messages.append({'category': 'error', 'content': f'Błąd bazy danych: {str(e)}'})
-    return render_template('admin.html', rezerwacje=Rezerwacja.query.all(), stoliki=Stolik.query.all(), uzytkownicy=Uzytkownik.query.all(), messages=messages)
-
+        print(f"Database error: {str(e)}")
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return jsonify({'status': 'error', 'message': f'Błąd bazy danych: {str(e)}'}), 500
+        messages = [{'category': 'error', 'content': f'Błąd bazy danych: {str(e)}'}]
+        return render_template('admin.html', rezerwacje=Rezerwacja.query.all(), stoliki=Stolik.query.all(),
+                               uzytkownicy=Uzytkownik.query.all(), messages=messages,
+                               formy={u.id_user: UserForm(user_id=u.id_user, obj=u) for u in Uzytkownik.query.all()})
 # Endpointy - Zarządzanie Stolikami w Panelu Admina
 @app.route('/admin/get_table_reservations/<int:table_id>', methods=['GET'])
 @login_required
