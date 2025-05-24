@@ -6,14 +6,22 @@ from datetime import datetime
 from flask_wtf import FlaskForm
 from flask_wtf.csrf import CSRFError, validate_csrf
 from wtforms import StringField, PasswordField, SubmitField, SelectField
+from wtforms.fields.datetime import DateTimeLocalField
+from wtforms.fields.simple import BooleanField
 from wtforms.validators import Length, EqualTo, Email, DataRequired, ValidationError
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy import and_
 from datetime import datetime, timedelta
 from uuid import uuid4
 import paypalrestsdk
+from datetime import datetime
+from sqlalchemy.exc import SQLAlchemyError
+
 
 app = Flask(__name__)
+
+def get_current_time():
+    return datetime.utcnow()  # Używamy UTC dla prostoty
 app.config['SECRET_KEY'] = '1231231321'
 app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://root:bazahaslo@localhost/system_rezerwacji'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
@@ -39,6 +47,7 @@ class Uzytkownik(db.Model, UserMixin):
     imie = db.Column(db.String(50), nullable=False)
     nazwisko = db.Column(db.String(50), nullable=False)
     status = db.Column(db.Enum('admin', 'klient'), nullable=False, default='klient')
+    rezerwacje = db.relationship('Rezerwacja', backref='uzytkownik', lazy=True)
 
     def get_id(self):
         return str(self.id_user)
@@ -57,6 +66,7 @@ class Rezerwacja(db.Model):
     data = db.Column(db.DateTime, nullable=False)
     data_konca = db.Column(db.DateTime, nullable=False)
     oplacony = db.Column(db.Boolean, nullable=False, default=False)
+
 
 # Formularze
 class RegisterForm(FlaskForm):
@@ -104,6 +114,31 @@ class UserForm(FlaskForm):
             if user and user.status != 'admin' and status.data == 'admin':
                 raise ValidationError('Nie można zmienić statusu na admina bez odpowiednich uprawnień.')
 
+class RezerwacjaForm(FlaskForm):
+    data = DateTimeLocalField(
+        'Data rozpoczęcia',
+        format='%Y-%m-%dT%H:%M',
+        validators=[DataRequired()],
+        render_kw={"type": "datetime-local"}
+    )
+    id_stolik = SelectField(
+        'Stolik',
+        coerce=int,
+        validators=[DataRequired()]
+    )
+    submit = SubmitField('Zapisz zmiany')
+
+    def __init__(self, choices=None, *args, **kwargs):
+        super(RezerwacjaForm, self).__init__(*args, **kwargs)
+        if choices is not None:
+            self.id_stolik.choices = choices
+        else:
+            # Fallback: pobierz stoliki z bazy, jeśli choices nie podano
+            self.id_stolik.choices = [
+                (s.id_stolika, f"Stolik {s.id_stolika}")
+                for s in Stolik.query.order_by(Stolik.id_stolika).all()
+            ]
+
 @login_manager.user_loader
 def load_user(user_id):
     return Uzytkownik.query.get(int(user_id))
@@ -114,18 +149,20 @@ def home():
     messages = []
     return render_template('home.html', user=current_user, stoliki=Stolik.query.all(), messages=messages)
 
+
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     messages = []
-    forml = LoginForm()
     form = RegisterForm()
+    forml = LoginForm()
+
     if forml.validate_on_submit():
         attempted_user = Uzytkownik.query.filter_by(email=forml.email.data).first()
         if attempted_user and attempted_user.password == forml.password.data:
             login_user(attempted_user)
 
             # Sprawdzanie rezerwacji na jutro
-            tomorrow_start = datetime.now() + timedelta(days=1)
+            tomorrow_start = get_current_time() + timedelta(days=1)
             tomorrow_start = tomorrow_start.replace(hour=0, minute=0, second=0, microsecond=0)
             tomorrow_end = tomorrow_start.replace(hour=23, minute=59, second=59)
 
@@ -143,19 +180,25 @@ def login():
                     })
 
             if attempted_user.status == 'admin':
+                rezerwacje = Rezerwacja.query.order_by(Rezerwacja.data.asc()).all()
+                stoliki = Stolik.query.all()
                 uzytkownicy = Uzytkownik.query.all()
                 formy = {u.id_user: UserForm(user_id=u.id_user, obj=u) for u in uzytkownicy}
-                messages.append({'category': 'success', 'content': 'Zalogowano jako admin!'})
-                return render_template('admin.html', rezerwacje=Rezerwacja.query.all(),
-                           stoliki=Stolik.query.all(),
-                           uzytkownicy=uzytkownicy,
-                           messages=messages,
-                           formy=formy)
+                formy_rezerwacje = {r.id_rezerwacji: RezerwacjaForm(obj=r) for r in rezerwacje}
+                return render_template('admin.html',
+                                       rezerwacje=rezerwacje,
+                                       stoliki=stoliki,
+                                       uzytkownicy=uzytkownicy,
+                                       messages=messages,
+                                       formy=formy,
+                                       formy_rezerwacje=formy_rezerwacje,
+                                       now=get_current_time)
             else:
                 messages.append({'category': 'success', 'content': 'Zalogowano pomyślnie!'})
                 return render_template('home.html', user=current_user, stoliki=Stolik.query.all(), messages=messages)
         else:
             messages.append({'category': 'error', 'content': 'Email lub hasło nieprawidłowe!'})
+
     return render_template('login.html', forml=forml, form=form, active_form='login', messages=messages)
 
 @app.route('/logout')
@@ -405,35 +448,227 @@ def payment_cancel():
     messages = [{'category': 'error', 'content': 'Płatność została anulowana!'}]
     return render_template('my_reservations.html', rezerwacje=Rezerwacja.query.filter_by(id_user=current_user.id_user).all(), messages=messages)
 # Endpointy - Panel Admina
+
 @app.route('/admin')
 @login_required
 def admin():
-    rezerwacje = Rezerwacja.query.all()
-    stoliki = Stolik.query.all()
-    uzytkownicy = Uzytkownik.query.all()
-    formy = {u.id_user: UserForm(user_id=u.id_user, obj=u) for u in uzytkownicy}
     messages = []
     if current_user.status != 'admin':
         messages.append({'category': 'error', 'content': 'Brak uprawnień do panelu admina!'})
         return render_template('home.html', user=current_user, stoliki=Stolik.query.all(), messages=messages)
-    return render_template('admin.html', rezerwacje=rezerwacje, stoliki=stoliki, uzytkownicy=uzytkownicy, messages=messages, formy=formy)
-@app.route('/mark_paid/<int:rezerwacja_id>')
+
+    # Pobieramy rezerwacje posortowane od najstarszych do najnowszych według data
+    rezerwacje = Rezerwacja.query.order_by(Rezerwacja.data.asc()).all()
+    stoliki = Stolik.query.all()
+    uzytkownicy = Uzytkownik.query.all()
+    formy = {u.id_user: UserForm(user_id=u.id_user, obj=u) for u in uzytkownicy}
+    formy_rezerwacje = {r.id_rezerwacji: RezerwacjaForm(obj=r) for r in rezerwacje}
+
+    return render_template('admin.html', rezerwacje=rezerwacje, stoliki=stoliki, uzytkownicy=uzytkownicy,
+                          messages=messages, formy=formy, formy_rezerwacje=formy_rezerwacje, now=get_current_time)
+@app.route('/mark_paid/<int:rezerwacja_id>', methods=['POST'])
 @login_required
 def mark_paid(rezerwacja_id):
     messages = []
     if current_user.status != 'admin':
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return jsonify({'status': 'error', 'message': 'Brak uprawnień!'}), 403
         messages.append({'category': 'error', 'content': 'Brak uprawnień!'})
         return render_template('home.html', user=current_user, stoliki=Stolik.query.all(), messages=messages)
+
     rezerwacja = Rezerwacja.query.get(rezerwacja_id)
-    if rezerwacja:
-        rezerwacja.oplacony = True
-        db.session.commit()
-        messages.append({'category': 'success', 'content': 'Rezerwacja oznaczona jako opłacona!'})
-    else:
+    if not rezerwacja:
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return jsonify({'status': 'error', 'message': 'Rezerwacja nie istnieje!'}), 404
         messages.append({'category': 'error', 'content': 'Rezerwacja nie istnieje!'})
-    return render_template('admin.html', rezerwacje=Rezerwacja.query.all(), stoliki=Stolik.query.all(), uzytkownicy=Uzytkownik.query.all(), messages=messages)
+        return render_admin_template(messages)
+
+    try:
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            csrf_token = request.json.get('csrf_token')
+            validate_csrf(csrf_token)
+
+        if rezerwacja.oplacony:
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return jsonify({'status': 'error', 'message': 'Rezerwacja już oznaczona jako opłacona!'}), 400
+            messages.append({'category': 'error', 'content': 'Rezerwacja już oznaczona jako opłacona!'})
+        else:
+            rezerwacja.oplacony = True
+            db.session.commit()
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return jsonify({'status': 'success', 'message': 'Rezerwacja oznaczona jako opłacona!', 'redirect': url_for('admin')})
+            messages.append({'category': 'success', 'content': 'Rezerwacja oznaczona jako opłacona!'})
+
+        return render_admin_template(messages)
+    except CSRFError:
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return jsonify({'status': 'error', 'message': 'Nieprawidłowy token CSRF!'}), 400
+        messages.append({'category': 'error', 'content': 'Nieprawidłowy token CSRF!'})
+        return render_admin_template(messages)
+    except SQLAlchemyError as e:
+        db.session.rollback()
+        print(f"Database error: {str(e)}")
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return jsonify({'status': 'error', 'message': f'Błąd bazy danych: {str(e)}'}), 500
+        messages.append({'category': 'error', 'content': f'Błąd bazy danych: {str(e)}'})
+        return render_admin_template(messages)
+
+def render_admin_template(messages):
+    rezerwacje = Rezerwacja.query.all()
+    stoliki = Stolik.query.all()
+    uzytkownicy = Uzytkownik.query.all()
+    formy = {u.id_user: UserForm(user_id=u.id_user, obj=u) for u in uzytkownicy}
+    formy_rezerwacje = {r.id_rezerwacji: RezerwacjaForm(obj=r) for r in rezerwacje}
+    return render_template('admin.html', rezerwacje=rezerwacje, stoliki=stoliki, uzytkownicy=uzytkownicy,
+                          messages=messages, formy=formy, formy_rezerwacje=formy_rezerwacje)
+
+from flask import request, jsonify, render_template, url_for
+from flask_login import login_required, current_user
+from sqlalchemy.exc import SQLAlchemyError
 
 
+@app.route('/admin/edit_rezerwacja/<int:rezerwacja_id>', methods=['GET', 'POST'])
+@login_required
+def edit_rezerwacja(rezerwacja_id):
+    if current_user.status != 'admin':
+        messages = [{'category': 'error', 'content': 'Brak uprawnień do edycji rezerwacji!'}]
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return jsonify({'status': 'error', 'message': 'Brak uprawnień!'}), 403
+        return render_template('home.html', user=current_user, stoliki=Stolik.query.all(), messages=messages)
+
+    rezerwacja = Rezerwacja.query.get_or_404(rezerwacja_id)
+
+    # Sprawdzanie, czy rezerwacja jest zakończona
+    current_time = get_current_time()
+    if rezerwacja.data_konca < current_time:
+        messages = [{'category': 'error', 'content': 'Nie można edytować zakończonych rezerwacji!'}]
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return jsonify({'status': 'error', 'message': 'Nie można edytować zakończonych rezerwacji!'}), 403
+        return render_admin_template(messages)
+
+    # Inicjalizacja formularza z domyślną wartością id_stolik i opcjami
+    stoliki = Stolik.query.all()
+    form = RezerwacjaForm(
+        formdata=request.form if request.method == 'POST' else None,
+        obj=rezerwacja,
+        id_stolik=rezerwacja.id_stolika,
+        choices=[(s.id_stolika, f"Stolik {s.id_stolika}") for s in stoliki]
+    )
+
+    if request.method == 'POST':
+        # Walidacja CSRF dla żądań AJAX
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            try:
+                validate_csrf(request.form.get('csrf_token'))
+            except CSRFError as e:
+                print(f"CSRF validation failed: {str(e)}")
+                return jsonify({'status': 'error', 'message': 'Nieprawidłowy token CSRF!'}), 403
+
+        print(f"Raw POST data: {request.form}")
+        print(f"Form data received: {form.data}")
+        print(f"Form errors: {form.errors}")
+        print(f"Form validated: {form.validate_on_submit()}")
+
+    if form.validate_on_submit():
+        try:
+            # Parsowanie daty rozpoczęcia
+            data_start = form.data.data  # jeśli form.data to DateTimeField, to to jest datetime, nie string
+            # Obliczanie daty zakończenia (+2 godziny)
+            data_end = data_start + timedelta(hours=2)
+
+            # Walidacja kolizji stolika
+            conflicting_reservations = Rezerwacja.query.filter(
+                Rezerwacja.id_stolika == form.id_stolik.data,
+                Rezerwacja.id_rezerwacji != rezerwacja_id,
+                Rezerwacja.data <= data_end,
+                Rezerwacja.data_konca >= data_start
+            ).all()
+
+            if conflicting_reservations:
+                conflict_messages = [
+                    f"Stolik jest już zarezerwowany w czasie {r.data.strftime('%Y-%m-%d %H:%M')} - {r.data_konca.strftime('%Y-%m-%d %H:%M')}"
+                    for r in conflicting_reservations
+                ]
+                messages = [{'category': 'error', 'content': '; '.join(conflict_messages)}]
+                if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                    return jsonify({'status': 'error', 'message': '; '.join(conflict_messages)}), 400
+                return render_template('edit_rezerwacja.html', form=form, rezerwacja=rezerwacja, messages=messages)
+
+            print(
+                f"Before update: Rezerwacja {rezerwacja.id_rezerwacji} - data={rezerwacja.data}, data_konca={rezerwacja.data_konca}, stolik={rezerwacja.id_stolika}, oplacony={rezerwacja.oplacony}")
+            # Aktualizacja pól
+            rezerwacja.data = data_start
+            rezerwacja.data_konca = data_end
+            rezerwacja.id_stolika = form.id_stolik.data
+            db.session.commit()
+            print(
+                f"After update: Rezerwacja {rezerwacja.id_rezerwacji} - data={rezerwacja.data}, data_konca={rezerwacja.data_konca}, stolik={rezerwacja.id_stolika}, oplacony={rezerwacja.oplacony}")
+
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return jsonify({'status': 'success', 'message': 'Dane rezerwacji zostały zaktualizowane!',
+                                'redirect': url_for('admin')})
+            messages = [{'category': 'success', 'content': 'Dane rezerwacji zostały zaktualizowane!'}]
+            return render_admin_template(messages)
+        except SQLAlchemyError as e:
+            db.session.rollback()
+            print(f"Database error: {str(e)}")
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return jsonify({'status': 'error', 'message': f'Błąd bazy danych: {str(e)}'}), 500
+            messages = [{'category': 'error', 'content': f'Błąd bazy danych: {str(e)}'}]
+            return render_template('edit_rezerwacja.html', form=form, rezerwacja=rezerwacja, messages=messages)
+    else:
+        if request.method == 'POST' and request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            errors = {field: [str(e) for e in errs] for field, errs in form.errors.items()}
+            print(f"Validation errors: {errors}")
+            return jsonify({'status': 'error', 'message': 'Błąd walidacji', 'errors': errors}), 400
+        if request.method == 'POST':
+            messages = [{'category': 'error', 'content': f'Błąd walidacji: {form.errors}'}]
+        else:
+            messages = []
+
+    return render_template('edit_rezerwacja.html', form=form, rezerwacja=rezerwacja, messages=messages)
+
+
+from flask_wtf.csrf import validate_csrf, CSRFError
+
+
+@app.route('/admin/delete_rezerwacja/<int:rezerwacja_id>', methods=['POST'])
+@login_required
+def delete_rezerwacja(rezerwacja_id):
+    if current_user.status != 'admin':
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return jsonify({'status': 'error', 'message': 'Brak uprawnień!'}), 403
+        messages = [{'category': 'error', 'content': 'Brak uprawnień do usuwania rezerwacji!'}]
+        return render_template('home.html', user=current_user, stoliki=Stolik.query.all(), messages=messages)
+
+    rezerwacja = Rezerwacja.query.get_or_404(rezerwacja_id)
+
+    try:
+        csrf_token = request.json.get('csrf_token')
+        validate_csrf(csrf_token)
+
+        print(f"Deleting rezerwacja {rezerwacja.id_rezerwacji}")
+        db.session.delete(rezerwacja)
+        db.session.commit()
+        print(f"Rezerwacja {rezerwacja.id_rezerwacji} deleted successfully")
+
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return jsonify(
+                {'status': 'success', 'message': 'Rezerwacja została usunięta!', 'redirect': url_for('admin')})
+        messages = [{'category': 'success', 'content': 'Rezerwacja została usunięta!'}]
+        return render_admin_template(messages)
+    except CSRFError:
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return jsonify({'status': 'error', 'message': 'Nieprawidłowy token CSRF!'}), 400
+        messages = [{'category': 'error', 'content': 'Nieprawidłowy token CSRF!'}]
+        return render_admin_template(messages)
+    except SQLAlchemyError as e:
+        db.session.rollback()
+        print(f"Database error: {str(e)}")
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return jsonify({'status': 'error', 'message': f'Błąd bazy danych: {str(e)}'}), 500
+        messages = [{'category': 'error', 'content': f'Błąd bazy danych: {str(e)}'}]
+        return render_admin_template(messages)
 from flask import request, jsonify, render_template, url_for
 from flask_login import login_required, current_user
 from sqlalchemy.exc import SQLAlchemyError
@@ -565,16 +800,19 @@ def get_table_reservations(table_id):
     if current_user.status != 'admin':
         return jsonify({'status': 'error', 'message': 'Brak uprawnień!'}), 403
 
-    reservations = Rezerwacja.query.filter_by(id_stolika=table_id).all()
-    reservations_data = [
-        {
-            'id_user': res.id_user,
-            'data': res.data.strftime('%Y-%m-%d %H:%M'),
-            'oplacony': res.oplacony
-        }
-        for res in reservations
-    ]
-    return jsonify({'status': 'success', 'reservations': reservations_data})
+    try:
+        reservations = Rezerwacja.query.filter_by(id_stolika=table_id).all()
+        reservations_data = [
+            {
+                'email': res.uzytkownik.email if res.uzytkownik else 'Brak email',
+                'data': res.data.strftime('%Y-%m-%d %H:%M'),
+                'oplacony': res.oplacony
+            }
+            for res in reservations
+        ]
+        return jsonify({'status': 'success', 'reservations': reservations_data})
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': f'Wystąpił błąd: {str(e)}'}), 500
 
 @app.route('/admin/edit_table', methods=['POST'])
 @login_required

@@ -783,3 +783,53 @@ tr:hover {
         transform: translateY(0);
     }
 }
+.past-reservation {
+    background-color: #f8f8f8;
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+.past-reservation:hover {
+    background-color: #f8f8f8 !important;
+}
+.table .past-reservation {
+        background-color: #f0f0f0 !important;
+        opacity: 0.7;
+        cursor: not-allowed;
+    }
+    .table .past-reservation:hover {
+        background-color: #f0f0f0 !important;
+    }
+    .table .past-reservation td {
+        color: #666;
+    }
+    .modal .form-control:disabled {
+        background-color: #e9ecef;
+        cursor: not-allowed;
+    }
+    .reservations-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 10px;
+    }
+    .reservations-table th, .reservations-table td {
+        border: 1px solid #ddd;
+        padding: 8px;
+        text-align: left;
+    }
+    .reservations-table th {
+        background-color: #f2f2f2;
+        font-weight: bold;
+    }
+    .reservations-table tr:nth-child(even) {
+        background-color: #f9f9f9;
+    }
+  .custom-modal {
+  max-width: none;
+  width: 95vw; /* lub 100vw, ale 95 lepiej wygląda */
+  margin: 0 auto;
+}
+
+.custom-modal .modal-content {
+  height: auto;
+  width: 100%;
+}

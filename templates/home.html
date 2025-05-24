@@ -10,7 +10,7 @@
 <body>
     <header class="l-header" id="header">
         <nav class="nav bd-container">
-            <a href="#" class="nav__logo"><h1>Kociołek</h1></a>
+            <a href="{{ url_for('home') }}" class="nav__logo"><h1>Kociołek</h1></a>
             <div class="nav__menu" id="nav-menu">
                 <ul class="nav__list">
                     <li class="nav__item"><a href="#home" class="nav__link active-link">Strona główna</a></li>
@@ -20,11 +20,15 @@
                         </script>
                         {% if current_user.status == 'admin' %}
                             <li class="nav__item"><a href="{{ url_for('admin') }}" class="nav__link">Panel Admina</a></li>
+                            <li class="nav__item"><a href="{{ url_for('logout') }}" class="nav__link">Wyloguj</a></li>
+
                         {% endif %}
+                        {% if current_user.status == 'klient' %}
                         <li class="nav__item"><a href="#about" class="nav__link">O nas</a></li>
                         <li class="nav__item"><a href="#contact" class="nav__link">Kontakt</a></li>
                         <li class="nav__item"><a href="{{ url_for('my_reservations') }}" class="nav__link active-link">Moje Rezerwacje</a></li>
                         <li class="nav__item"><a href="{{ url_for('logout') }}" class="nav__link">Wyloguj</a></li>
+                        {% endif %}
                     {% else %}
                         <li class="nav__item"><a href="#about" class="nav__link">O nas</a></li>
                         <li class="nav__item"><a href="#contact" class="nav__link">Kontakt</a></li>

@@ -19,7 +19,6 @@
             <div class="nav__menu" id="nav-menu">
                 <ul class="nav__list">
                     <li class="nav__item"><a href="{{ url_for('home') }}#home" class="nav__link">Home</a></li>
-                    <li class="nav__item"><a href="{{ url_for('home') }}#about" class="nav__link">About</a></li>
                     <li class="nav__item"><a href="{{ url_for('admin') }}" class="nav__link active-link">Panel Admina</a></li>
                     <li class="nav__item"><a href="{{ url_for('logout') }}" class="nav__link">Wyloguj</a></li>
                 </ul>
@@ -141,57 +140,453 @@
     </div>
 </div>
 {% endfor %}
+<!-- Sekcja rezerwacji -->
+<div class="container">
+    <h2>Rezerwacje</h2>
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-{{ message.category }}">{{ message.content }}</div>
+        {% endfor %}
+    {% endif %}
+    {% if rezerwacje %}
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Email użytkownika</th>
+                    <th>Data rozpoczęcia</th>
+                    <th>Data zakończenia</th>
+                    <th>Opłacony</th>
+                    <th>Akcje</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for rezerwacja in rezerwacje %}
+                    <tr class="rezerwacja-row"
+                        data-id="{{ rezerwacja.id_rezerwacji }}"
+                        data-end-date="{{ rezerwacja.data_konca.strftime('%Y-%m-%dT%H:%M:%S') }}"
+                        data-toggle="modal"
+                        data-target="#editRezerwacjaModal-{{ rezerwacja.id_rezerwacji }}"
+                        style="cursor: pointer;">
+                        <td>{{ rezerwacja.uzytkownik.email }}</td>
+                        <td>{{ rezerwacja.data.strftime('%Y-%m-%d %H:%M') }}</td>
+                        <td>{{ rezerwacja.data_konca.strftime('%Y-%m-%d %H:%M') }}</td>
+                        <td>{{ 'Tak' if rezerwacja.oplacony else 'Nie' }}</td>
+                        <td>
+                            {% if not rezerwacja.oplacony %}
+                                <button class="btn btn-success mark-paid-btn" data-rezerwacja-id="{{ rezerwacja.id_rezerwacji }}">Oznacz jako opłacony</button>
+                            {% endif %}
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% else %}
+        <p>Brak rezerwacji w bazie.</p>
+    {% endif %}
+</div>
 
-            <!-- Sekcja stolików -->
-            <h2>Stoliki</h2>
-            {% if stoliki %}
-                <table class="tables-table">
-                    <thead>
-                        <tr>
-                            <th>Stolik</th>
-                            <th>Ilość miejsc</th>
-                            <th>Akcje</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for stolik in stoliki %}
-                            <tr class="table-row" data-table-id="{{ stolik.id_stolika }}">
-                                <td>Stolik {{ stolik.id_stolika }}</td>
-                                <td>{{ stolik.ilosc_miejsc }}</td>
-                                <td>
-                                    <a href="#" onclick="showEditForm({{ stolik.id_stolika }}, {{ stolik.ilosc_miejsc }}); return false;" class="button">Edytuj</a>
-                                    <form method="POST" action="{{ url_for('delete_table', table_id=stolik.id_stolika) }}" style="display:inline;">
-                                        <button type="submit" class="button button-delete" onclick="return confirm('Czy na pewno chcesz usunąć stolik {{ stolik.id_stolika }}?')">Usuń</button>
-                                    </form>
-                                </td>
-                            </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-
-                <div id="edit-form" style="display:none; margin-top: 20px;">
-                    <h3>Edytuj Stolik</h3>
-                    <form id="edit-table-form" method="POST" action="{{ url_for('edit_table') }}">
-                        <input type="hidden" name="table_id" id="edit-table-id">
-                        <label for="seats">Ilość miejsc:</label>
-                        <input type="number" name="seats" id="edit-seats" min="1" required>
-                        <button type="submit" class="button">Zapisz</button>
-                        <button type="button" class="button button-delete" onclick="hideEditForm()">Anuluj</button>
-                    </form>
+<!-- Modal edycji rezerwacji -->
+{% for rezerwacja in rezerwacje %}
+<div class="modal fade" id="editRezerwacjaModal-{{ rezerwacja.id_rezerwacji }}" tabindex="-1" role="dialog" aria-labelledby="editRezerwacjaModalLabel-{{ rezerwacja.id_rezerwacji }}" aria-hidden="true">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="editRezerwacjaModalLabel-{{ rezerwacja.id_rezerwacji }}">Edytuj rezerwację</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">×</span>
+                </button>
+            </div>
+            <form action="{{ url_for('edit_rezerwacja', rezerwacja_id=rezerwacja.id_rezerwacji) }}" method="POST" class="edit-rezerwacja-form" data-rezerwacja-id="{{ rezerwacja.id_rezerwacji }}">
+                <div class="modal-body">
+                    <div class="error-container"></div>
+                    {{ formy_rezerwacje[rezerwacja.id_rezerwacji].csrf_token }}
+                    <div class="form-group">
+                        <label for="data-{{ rezerwacja.id_rezerwacji }}">Data rozpoczęcia:</label>
+                        {{ formy_rezerwacje[rezerwacja.id_rezerwacji].data(class="form-control", id="data-" + rezerwacja.id_rezerwacji|string, value=rezerwacja.data.strftime('%Y-%m-%dT%H:%M')) }}
+                        {% if formy_rezerwacje[rezerwacja.id_rezerwacji].data.errors %}
+                            <div class="text-danger">
+                                {% for error in formy_rezerwacje[rezerwacja.id_rezerwacji].data.errors %}
+                                    <p>{{ error }}</p>
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                    </div>
+                    <div class="form-group">
+                        <label for="id_stolik-{{ rezerwacja.id_rezerwacji }}">Stolik:</label>
+                        {{ formy_rezerwacje[rezerwacja.id_rezerwacji].id_stolik(class="form-control", id="id_stolik-" + rezerwacja.id_rezerwacji|string) }}
+                        {% if formy_rezerwacje[rezerwacja.id_rezerwacji].id_stolik.errors %}
+                            <div class="text-danger">
+                                {% for error in formy_rezerwacje[rezerwacja.id_rezerwacji].id_stolik.errors %}
+                                    <p>{{ error }}</p>
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                    </div>
                 </div>
-
-                <h3>Rezerwacje dla wybranego stolika</h3>
-                <div id="table-reservations">
-                    <p>Wybierz stolik, aby zobaczyć rezerwacje.</p>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Zamknij</button>
+                    <button type="button" class="btn btn-danger delete-rezerwacja-btn" data-rezerwacja-id="{{ rezerwacja.id_rezerwacji }}">Usuń</button>
+                    {{ formy_rezerwacje[rezerwacja.id_rezerwacji].submit(class="btn btn-primary") }}
                 </div>
-            {% else %}
-                <p>Brak stolików.</p>
-            {% endif %}
+            </form>
+        </div>
+    </div>
+</div>
+{% endfor %}
 
-            <a href="{{ url_for('home') }}" class="button">Wróć</a>
+           <!-- Sekcja stolików -->
+<div class="container">
+    <h2>Stoliki</h2>
+    {% if stoliki %}
+<table class="tables-table table">
+    <thead>
+                <tr>
+                    <th>Stolik</th>
+                    <th>Ilość miejsc</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for stolik in stoliki %}
+                    <tr class="table-row" data-table-id="{{ stolik.id_stolika }}">
+                        <td>Stolik {{ stolik.id_stolika }}</td>
+                        <td>{{ stolik.ilosc_miejsc }}</td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+{% endif %}
+<!-- Modal wyświetlający rezerwacje dla stolika -->
+<div class="modal fade" id="tableReservationsModal" tabindex="-1" role="dialog" aria-labelledby="tableReservationsModalLabel" aria-hidden="true">
+  <div class="modal-dialog custom-modal" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="tableReservationsModalLabel">Rezerwacje dla stolika</h5>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Zamknij">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body" id="tableReservationsModalBody">
+        <p>Ładowanie rezerwacji...</p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-dismiss="modal">Zamknij</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+</div>
         </section>
 
     </main>
+
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    console.log('JavaScript loaded for admin.html');
+    const now = new Date('{{ now().strftime("%Y-%m-%dT%H:%M:%S") }}Z'); // Bieżący czas w UTC
+
+    // Obsługa kliknięcia w wiersz
+    document.querySelectorAll('.rezerwacja-row').forEach(row => {
+        const endDate = new Date(row.dataset.endDate + 'Z'); // data_konca w UTC
+        const isPast = endDate < now;
+        if (isPast) {
+            row.classList.add('past-reservation');
+            row.removeAttribute('data-toggle');
+            row.removeAttribute('data-target');
+            row.style.cursor = 'not-allowed';
+            // Ukryj przycisk "Oznacz jako opłacony" dla starych rezerwacji
+            const markPaidBtn = row.querySelector('.mark-paid-btn');
+            if (markPaidBtn) {
+                markPaidBtn.style.display = 'none';
+            }
+        }
+
+        row.addEventListener('click', function (e) {
+            console.log('Clicked row with id:', this.dataset.id, 'Classes:', this.classList);
+            if (this.classList.contains('past-reservation')) {
+                console.log('Past reservation, skipping modal');
+                return;
+            }
+            if (e.target.classList.contains('mark-paid-btn') || e.target.closest('.mark-paid-btn')) {
+                console.log('Clicked mark-paid-btn, skipping modal');
+                return;
+            }
+            const rezerwacjaId = this.dataset.id;
+            const modal = document.getElementById(`editRezerwacjaModal-${rezerwacjaId}`);
+            if (modal) {
+                console.log('Opening modal for reservation:', rezerwacjaId);
+                $(modal).modal('show');
+            } else {
+                console.error(`Modal for reservation ${rezerwacjaId} not found`);
+            }
+        });
+    });
+
+    // Obsługa zamykania modalów
+    document.querySelectorAll('.close').forEach(closeButton => {
+        closeButton.addEventListener('click', function () {
+            console.log('Closing modal');
+            const modal = this.closest('.modal');
+            $(modal).modal('hide');
+        });
+    });
+
+    // Zamykanie modalu po kliknięciu poza nim
+    document.querySelectorAll('.modal').forEach(modal => {
+        modal.addEventListener('click', function (e) {
+            if (e.target === modal) {
+                console.log('Clicked outside modal, closing');
+                $(modal).modal('hide');
+            }
+        });
+    });
+
+    // Obsługa wysyłania formularzy edycji rezerwacji przez AJAX
+    document.querySelectorAll('.edit-rezerwacja-form').forEach(form => {
+        form.addEventListener('submit', function (e) {
+            e.preventDefault();
+            console.log('Form submit attempted for reservation:', this.dataset.rezerwacjaId);
+            const rezerwacjaId = this.dataset.rezerwacjaId;
+            const row = document.querySelector(`.rezerwacja-row[data-id="${rezerwacjaId}"]`);
+            if (row.classList.contains('past-reservation')) {
+                console.log('Past reservation, aborting form submission');
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Błąd',
+                    text: 'Nie można edytować zakończonych rezerwacji!',
+                    confirmButtonText: 'OK'
+                });
+                return;
+            }
+            const modal = document.getElementById(`editRezerwacjaModal-${rezerwacjaId}`);
+            const errorContainer = modal.querySelector('.error-container') || modal.querySelector('.modal-body');
+
+            // Debugowanie: wartości pól formularza
+            const dataField = form.querySelector(`#data-${rezerwacjaId}`);
+            const stolikField = form.querySelector(`#id_stolik-${rezerwacjaId}`);
+            console.log('Form values before submit:', {
+                data: dataField ? dataField.value : 'Brak pola data',
+                id_stolik: stolikField ? stolikField.value : 'Brak pola stolik'
+            });
+
+            const formData = new FormData(this);
+            for (let [key, value] of formData.entries()) {
+                console.log(`FormData: ${key}: ${value}`);
+            }
+
+            errorContainer.querySelectorAll('.alert-danger').forEach(el => el.remove());
+
+            fetch(`/admin/edit_rezerwacja/${rezerwacjaId}`, {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+            .then(response => {
+                console.log('Response status:', response.status);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                console.log('Server response:', data);
+                if (data.status === 'success') {
+                    $(modal).modal('hide');
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Sukces',
+                        text: data.message,
+                        confirmButtonText: 'OK'
+                    }).then(() => {
+                        if (data.redirect) {
+                            window.location.href = data.redirect;
+                        } else {
+                            setTimeout(() => location.reload(), 2000);
+                        }
+                    });
+                } else {
+                    let errorHtml = '';
+                    if (data.errors) {
+                        for (const field in data.errors) {
+                            data.errors[field].forEach(error => {
+                                errorHtml += `<p>${error}</p>`;
+                            });
+                        }
+                    } else {
+                        errorHtml = `<p>${data.message}</p>`;
+                    }
+                    const errorAlert = document.createElement('div');
+                    errorAlert.className = 'alert alert-danger';
+                    errorAlert.innerHTML = errorHtml;
+                    errorContainer.prepend(errorAlert);
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Błąd',
+                        text: data.message || 'Błąd walidacji formularza',
+                        confirmButtonText: 'OK'
+                    });
+                }
+            })
+            .catch(error => {
+                console.error('Błąd:', error);
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Błąd',
+                    text: `Wystąpił błąd: ${error.message}`,
+                    confirmButtonText: 'OK'
+                });
+            });
+        });
+    });
+
+    // Obsługa przycisku "Usuń"
+    document.querySelectorAll('.delete-rezerwacja-btn').forEach(button => {
+        button.addEventListener('click', function () {
+            console.log('Delete button clicked for reservation:', this.dataset.rezerwacjaId);
+            const rezerwacjaId = this.dataset.rezerwacjaId;
+            const row = document.querySelector(`.rezerwacja-row[data-id="${rezerwacjaId}"]`);
+            if (row.classList.contains('past-reservation')) {
+                console.log('Past reservation, aborting delete');
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Błąd',
+                    text: 'Nie można usunąć zakończonych rezerwacji!',
+                    confirmButtonText: 'OK'
+                });
+                return;
+            }
+            const modal = document.getElementById(`editRezerwacjaModal-${rezerwacjaId}`);
+
+            Swal.fire({
+                title: 'Czy na pewno chcesz usunąć rezerwację?',
+                text: 'Tej operacji nie można cofnąć!',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#d33',
+                cancelButtonColor: '#3085d6',
+                confirmButtonText: 'Tak, usuń!',
+                cancelButtonText: 'Anuluj'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    fetch(`/admin/delete_rezerwacja/${rezerwacjaId}`, {
+                        method: 'POST',
+                        headers: {
+                            'X-Requested-With': 'XMLHttpRequest',
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ csrf_token: document.querySelector(`#editRezerwacjaModal-${rezerwacjaId} input[name="csrf_token"]`).value })
+                    })
+                    .then(response => {
+                        console.log('Delete response status:', response.status);
+                        if (!response.ok) {
+                            throw new Error(`HTTP error! status: ${response.status}`);
+                        }
+                        return response.json();
+                    })
+                    .then(data => {
+                        console.log('Delete server response:', data);
+                        if (data.status === 'success') {
+                            $(modal).modal('hide');
+                            Swal.fire({
+                                icon: 'success',
+                                title: 'Sukces',
+                                text: data.message,
+                                confirmButtonText: 'OK'
+                            }).then(() => {
+                                window.location.href = data.redirect || '/admin';
+                            });
+                        } else {
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'Błąd',
+                                text: data.message || 'Nie udało się usunąć rezerwacji.',
+                                confirmButtonText: 'OK'
+                            });
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Błąd:', error);
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Błąd',
+                            text: `Wystąpił błąd: ${error.message}`,
+                            confirmButtonText: 'OK'
+                        });
+                    });
+                }
+            });
+        });
+    });
+
+    // Obsługa przycisku "Oznacz jako opłacony"
+    document.querySelectorAll('.mark-paid-btn').forEach(button => {
+        button.addEventListener('click', function (e) {
+            e.stopPropagation(); // Zapobiega wyzwoleniu kliknięcia w wiersz
+            console.log('Mark paid button clicked for reservation:', this.dataset.rezerwacjaId);
+            const rezerwacjaId = this.dataset.rezerwacjaId;
+            const row = document.querySelector(`.rezerwacja-row[data-id="${rezerwacjaId}"]`);
+            if (row.classList.contains('past-reservation')) {
+                console.log('Past reservation, aborting mark paid');
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Błąd',
+                    text: 'Nie można oznaczyć zakończonych rezerwacji jako opłacone!',
+                    confirmButtonText: 'OK'
+                });
+                return;
+            }
+
+            fetch(`/mark_paid/${rezerwacjaId}`, {
+                method: 'POST',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ csrf_token: document.querySelector(`#editRezerwacjaModal-${rezerwacjaId} input[name="csrf_token"]`).value })
+            })
+            .then(response => {
+                console.log('Mark paid response status:', response.status);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                console.log('Mark paid server response:', data);
+                if (data.status === 'success') {
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Sukces',
+                        text: data.message,
+                        confirmButtonText: 'OK'
+                    }).then(() => {
+                        window.location.href = data.redirect || '/admin';
+                    });
+                } else {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Błąd',
+                        text: data.message || 'Nie udało się oznaczyć rezerwacji jako opłaconej.',
+                        confirmButtonText: 'OK'
+                    });
+                }
+            })
+            .catch(error => {
+                console.error('Błąd:', error);
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Błąd',
+                    text: `Wystąpił błąd: ${error.message}`,
+                    confirmButtonText: 'OK'
+                });
+            });
+        });
+    });
+});
+</script>
    <script>
 document.addEventListener('DOMContentLoaded', function () {
     // Obsługa otwierania modalów
@@ -388,94 +783,56 @@ document.addEventListener('DOMContentLoaded', function () {
 </script>
     <script src="{{ url_for('static', filename='styles/js/main.js') }}"></script>
     <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            const messages = {{ messages | tojson }};
-            messages.forEach(function(message) {
-                Swal.fire({
-                    icon: message.category === 'success' ? 'success' : 'error',
-                    title: message.category === 'success' ? 'Sukces' : 'Błąd',
-                    text: message.content,
-                    confirmButtonText: 'OK'
+        document.querySelectorAll('.table-row').forEach(row => {
+    row.addEventListener('click', function (e) {
+        if (e.target.tagName === 'A' || e.target.tagName === 'BUTTON') return;
+
+        const tableId = this.dataset.tableId;
+        const modalBody = document.getElementById('tableReservationsModalBody');
+        const modalTitle = document.getElementById('tableReservationsModalLabel');
+
+        modalTitle.textContent = `Rezerwacje dla stolika ${tableId}`;
+        modalBody.innerHTML = '<p>Ładowanie rezerwacji...</p>';
+
+        fetch(`/admin/get_table_reservations/${tableId}`, {
+            method: 'GET'
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success' && data.reservations.length > 0) {
+                let html = `
+                    <table class="table table-bordered">
+                        <thead>
+                            <tr>
+                                <th>Użytkownik</th>
+                                <th>Data i godzina</th>
+                                <th>Status płatności</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                `;
+                data.reservations.forEach(res => {
+                    html += `
+                        <tr>
+                            <td>${res.email}</td>
+                            <td>${res.data}</td>
+                            <td>${res.oplacony ? 'Opłacone' : 'Nieopłacone'}</td>
+                        </tr>
+                    `;
                 });
-            });
-
-            // Obsługa kliknięcia w wiersz stolika
-            document.querySelectorAll('.table-row').forEach(row => {
-                row.addEventListener('click', function(e) {
-                    // Zapobiegaj wywoływaniu zdarzenia, jeśli kliknięto link lub przycisk
-                    if (e.target.tagName === 'A' || e.target.tagName === 'BUTTON') return;
-
-                    const tableId = this.dataset.tableId;
-                    fetch(`/admin/get_table_reservations/${tableId}`, {
-                        method: 'GET'
-                    })
-                    .then(response => response.json())
-                    .then(data => {
-                        const reservationsDiv = document.getElementById('table-reservations');
-                        if (data.status === 'success' && data.reservations.length > 0) {
-                            let html = '<table class="reservations-table"><thead><tr><th>Użytkownik</th><th>Data i godzina</th><th>Status płatności</th></tr></thead><tbody>';
-                            data.reservations.forEach(res => {
-                                html += `<tr>
-                                    <td>${res.id_user}</td>
-                                    <td>${res.data}</td>
-                                    <td>${res.oplacony ? 'Opłacone' : 'Nieopłacone'}</td>
-                                </tr>`;
-                            });
-                            html += '</tbody></table>';
-                            reservationsDiv.innerHTML = html;
-                        } else {
-                            reservationsDiv.innerHTML = '<p>Brak rezerwacji dla tego stolika.</p>';
-                        }
-                    })
-                    .catch(error => {
-                        document.getElementById('table-reservations').innerHTML = '<p>Wystąpił błąd: ' + error.message + '</p>';
-                    });
-                });
-            });
-
-            // Funkcje do obsługi formularza edycji
-            function showEditForm(tableId, seats) {
-                document.getElementById('edit-table-id').value = tableId;
-                document.getElementById('edit-seats').value = seats;
-                document.getElementById('edit-form').style.display = 'block';
+                html += '</tbody></table>';
+                modalBody.innerHTML = html;
+            } else {
+                modalBody.innerHTML = '<p>Brak rezerwacji dla tego stolika.</p>';
             }
-
-            function hideEditForm() {
-                document.getElementById('edit-form').style.display = 'none';
-                document.getElementById('edit-table-form').reset();
-            }
-
-            // Obsługa formularza edycji przez AJAX
-            document.getElementById('edit-table-form').addEventListener('submit', function(e) {
-                e.preventDefault();
-                const formData = new FormData(this);
-                fetch('{{ url_for("edit_table") }}', {
-                    method: 'POST',
-                    body: formData
-                })
-                .then(response => response.json())
-                .then(data => {
-                    Swal.fire({
-                        icon: data.status === 'success' ? 'success' : 'error',
-                        title: data.status === 'success' ? 'Sukces' : 'Błąd',
-                        text: data.message,
-                        confirmButtonText: 'OK'
-                    }).then(() => {
-                        if (data.status === 'success' && data.redirect) {
-                            window.location.href = data.redirect;
-                        }
-                    });
-                })
-                .catch(error => {
-                    Swal.fire({
-                        icon: 'error',
-                        title: 'Błąd',
-                        text: 'Wystąpił błąd: ' + error.message,
-                        confirmButtonText: 'OK'
-                    });
-                });
-            });
+        })
+        .catch(error => {
+            modalBody.innerHTML = `<p>Wystąpił błąd: ${error.message}</p>`;
         });
+
+        $('#tableReservationsModal').modal('show');
+    });
+});
     </script>
 </body>
 </html>

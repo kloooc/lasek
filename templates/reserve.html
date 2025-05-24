@@ -255,7 +255,7 @@
             <input type="hidden" name="stolik_id" id="stolik_id">
             <input type="hidden" name="date" id="date">
             <input type="hidden" name="hour" id="hour">
-            <button type="submit">Zarezerwuj</button>
+            <button type="submit" class="button">Zarezerwuj</button>
         </form>
 
         <a href="{{ url_for('home') }}" class="back-link">Wróć</a>
@@ -396,11 +396,26 @@
             })
             .then(response => response.json())
             .then(data => {
-                alert(data.message);
-                if (data.status === 'success' && data.redirect) {
-                    window.location.href = data.redirect;
-                }
-            })
+    if (data.status === 'success') {
+        Swal.fire({
+            icon: 'success',
+            title: 'Sukces!',
+            text: data.message,
+            confirmButtonText: 'OK'
+        }).then(() => {
+            if (data.redirect) {
+                window.location.href = data.redirect;
+            }
+        });
+    } else {
+        Swal.fire({
+            icon: 'error',
+            title: 'Błąd!',
+            text: data.message,
+            confirmButtonText: 'Zamknij'
+        });
+    }
+})
             .catch(error => {
                 alert('Wystąpił błąd podczas rezerwacji: ' + error.message);
             });
