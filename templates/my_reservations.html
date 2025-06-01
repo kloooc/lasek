@@ -10,155 +10,162 @@
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 </head>
 <body>
-    <header class="l-header" id="header">
-        <nav class="nav bd-container">
-            <a href="{{ url_for('home') }}" class="nav__logo"><h1>Kociołek</h1></a>
-            <div class="nav__menu" id="nav-menu">
-                <ul class="nav__list">
-                    <li class="nav__item"><a href="{{ url_for('home') }}" class="nav__link active-link">Strona główna</a></li>
-                    {% if current_user.is_authenticated %}
-                        <script>
-                            localStorage.removeItem('notificationsRead');
-                        </script>
-                        {% if current_user.status == 'admin' %}
-                            <li class="nav__item"><a href="{{ url_for('admin') }}" class="nav__link">Panel Admina</a></li>
-                        {% endif %}
-                        <li class="nav__item"><a href="{{ url_for('my_reservations') }}" class="nav__link active-link">Moje Rezerwacje</a></li>
-                        <li class="nav__item"><a href="{{ url_for('logout') }}" class="nav__link">Wyloguj</a></li>
-                    {% else %}
-                        <li class="nav__item"><a href="{{ url_for('login') }}" class="nav__link">Zaloguj</a></li>
-                        <li class="nav__item"><a href="{{ url_for('register_page') }}" class="nav__link">Rejestracja</a></li>
+<header class="l-header" id="header">
+    <nav class="nav bd-container">
+        <a href="{{ url_for('home') }}" class="nav__logo"><h1>Kociołek</h1></a>
+        <div class="nav__menu" id="nav-menu">
+            <ul class="nav__list">
+                <li class="nav__item"><a href="{{ url_for('home') }}" class="nav__link active-link">Strona główna</a>
+                </li>
+                {% if current_user.is_authenticated %}
+                    <script>
+                        localStorage.removeItem('notificationsRead');
+                    </script>
+                    {% if current_user.status == 'admin' %}
+                        <li class="nav__item"><a href="{{ url_for('admin') }}" class="nav__link">Panel Admina</a></li>
                     {% endif %}
-                    {% set reminders = messages|selectattr("category", "equalto", "reminder")|list %}
-                    <li class="nav__item" style="position: relative; cursor: pointer;" id="notification-icon">
-                        <i class='bx bx-bell'></i>
-                        {% if reminders|length > 0 %}
-                            <span id="notification-count" style="position: absolute; top: 0; right: 0; background: red; color: white; font-size: 12px; border-radius: 50%; padding: 0 6px;">
+                    <li class="nav__item"><a href="{{ url_for('my_reservations') }}" class="nav__link active-link">Moje
+                        Rezerwacje</a></li>
+                    <li class="nav__item"><a href="{{ url_for('logout') }}" class="nav__link">Wyloguj</a></li>
+                {% else %}
+                    <li class="nav__item"><a href="{{ url_for('login') }}" class="nav__link">Zaloguj</a></li>
+                    <li class="nav__item"><a href="{{ url_for('register_page') }}" class="nav__link">Rejestracja</a>
+                    </li>
+                {% endif %}
+                {% set reminders = messages|selectattr("category", "equalto", "reminder")|list %}
+                <li class="nav__item" style="position: relative; cursor: pointer;" id="notification-icon">
+                    <i class='bx bx-bell'></i>
+                    {% if reminders|length > 0 %}
+                        <span id="notification-count"
+                              style="position: absolute; top: 0; right: 0; background: red; color: white; font-size: 12px; border-radius: 50%; padding: 0 6px;">
                                 {{ reminders|length }}
                             </span>
-                        {% endif %}
-                        <!-- Dropdown z przypomnieniami -->
-                        <div id="notification-dropdown" style="display: none; position: absolute; top: 30px; right: 0; background: white; border: 1px solid #ccc; border-radius: 5px; width: 280px; box-shadow: 0 2px 6px rgba(0,0,0,0.2); z-index: 1000; max-height: 300px; overflow-y: auto;">
-                            {% for r in reminders %}
-                                <div style="padding: 10px; border-bottom: 1px solid #eee; font-size: 14px;">
-                                    🔔 {{ r.content }}
-                                </div>
-                            {% endfor %}
-                        </div>
-                    </li>
-                    <li><i class='bx bx-moon change-theme' id="theme-button"></i></li>
+                    {% endif %}
+                    <!-- Dropdown z przypomnieniami -->
+                    <div id="notification-dropdown"
+                         style="display: none; position: absolute; top: 30px; right: 0; background: white; border: 1px solid #ccc; border-radius: 5px; width: 280px; box-shadow: 0 2px 6px rgba(0,0,0,0.2); z-index: 1000; max-height: 300px; overflow-y: auto;">
+                        {% for r in reminders %}
+                            <div style="padding: 10px; border-bottom: 1px solid #eee; font-size: 14px;">
+                                🔔 {{ r.content }}
+                            </div>
+                        {% endfor %}
+                    </div>
+                </li>
+                <li><i class='bx bx-moon change-theme' id="theme-button"></i></li>
+            </ul>
+        </div>
+        <div class="nav__toggle" id="nav-toggle">
+            <i class='bx bx-menu'></i>
+        </div>
+    </nav>
+</header>
+
+
+<main class="l-main">
+    <section class="section bd-container">
+        <h1>Moje Rezerwacje</h1>
+        {% if rezerwacje %}
+            <table class="reservations-table">
+                <thead>
+                <tr>
+                    <th>Stolik</th>
+                    <th>Data i godzina</th>
+                    <th>Status płatności</th>
+                    <th>Akcje</th>
+                </tr>
+                </thead>
+                <tbody>
+                {% for rezerwacja in rezerwacje %}
+                    <tr>
+                        <td>Stolik {{ rezerwacja.id_stolika }} ({{ rezerwacja.stolik.ilosc_miejsc }} miejsc)</td>
+                        <td>{{ rezerwacja.data.strftime('%Y-%m-%d %H:%M') }}</td>
+                        <td>
+                            {% if rezerwacja.oplacony %}
+                                Opłacone
+                            {% else %}
+                                Nieopłacone
+                                <a href="{{ url_for('pay_reservation', rezerwacja_id=rezerwacja.id_rezerwacji) }}">(Opłać)</a>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if not rezerwacja.oplacony %}
+                                <form action="{{ url_for('cancel_reservation', rezerwacja_id=rezerwacja.id_rezerwacji) }}"
+                                      method="POST" style="display:inline;" class="anuluj-form">
+                                    <button type="button" class="btn btn-secondary anuluj-btn">Anuluj</button>
+                                </form>
+                            {% endif %}
+                        </td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        {% else %}
+            <p>Brak rezerwacji.</p>
+        {% endif %}
+    </section>
+    <footer class="footer section bd-container">
+        <div class="footer__container bd-grid">
+            <div class="footer__content">
+                <a href="#" class="footer__logo">Kociołek</a>
+                <span class="footer__description">Restauracja</span>
+                <div>
+                    <a href="#" class="footer__social"><i class='bx bxl-facebook'></i></a>
+                    <a href="#" class="footer__social"><i class='bx bxl-instagram'></i></a>
+                    <a href="#" class="footer__social"><i class='bx bxl-twitter'></i></a>
+                </div>
+            </div>
+
+            <div class="footer__content">
+                <h3 class="footer__title">Usługi</h3>
+                <ul>
+                    <li><a href="{{ url_for('reserve') }}" class="footer__link">Rezerwacja stolika</a></li>
                 </ul>
             </div>
-            <div class="nav__toggle" id="nav-toggle">
-                <i class='bx bx-menu'></i>
+
+            <div class="footer__content">
+                <h3 class="footer__title">Informacje</h3>
+                <ul>
+                    <li><a href="#" class="footer__link">Wydarzenia</a></li>
+                    <li><a href="#" class="footer__link">Kontakt</a></li>
+                    <li><a href="#" class="footer__link">Polityka prywatności</a></li>
+                    <li><a href="#" class="footer__link">Regulamin</a></li>
+                </ul>
             </div>
-        </nav>
-    </header>
 
-
-    <main class="l-main">
-        <section class="section bd-container">
-            <h1>Moje Rezerwacje</h1>
-            {% if rezerwacje %}
-                <table class="reservations-table">
-                    <thead>
-                        <tr>
-                            <th>Stolik</th>
-                            <th>Data i godzina</th>
-                            <th>Status płatności</th>
-                            <th>Akcje</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for rezerwacja in rezerwacje %}
-                            <tr>
-                                <td>Stolik {{ rezerwacja.id_stolika }} ({{ rezerwacja.stolik.ilosc_miejsc }} miejsc)</td>
-                                <td>{{ rezerwacja.data.strftime('%Y-%m-%d %H:%M') }}</td>
-                                <td>
-                                {% if rezerwacja.oplacony %}
-                                    Opłacone
-                                {% else %}
-                                    Nieopłacone <a href="{{ url_for('pay_reservation', rezerwacja_id=rezerwacja.id_rezerwacji) }}">(Opłać)</a>
-                                {% endif %}
-                                </td>
-                                <td>
-                                {% if not rezerwacja.oplacony %}
-                                    <form action="{{ url_for('cancel_reservation', rezerwacja_id=rezerwacja.id_rezerwacji) }}" method="POST" style="display:inline;" class="anuluj-form">
-                                        <button type="button" class="btn btn-secondary anuluj-btn">Anuluj</button>
-                                    </form>
-                                {% endif %}
-                                </td>
-                            </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            {% else %}
-                <p>Brak rezerwacji.</p>
-            {% endif %}
-        </section>
-            <footer class="footer section bd-container">
-            <div class="footer__container bd-grid">
-                <div class="footer__content">
-                    <a href="#" class="footer__logo">Kociołek</a>
-                    <span class="footer__description">Restauracja</span>
-                    <div>
-                        <a href="#" class="footer__social"><i class='bx bxl-facebook'></i></a>
-                        <a href="#" class="footer__social"><i class='bx bxl-instagram'></i></a>
-                        <a href="#" class="footer__social"><i class='bx bxl-twitter'></i></a>
-                    </div>
-                </div>
-
-                <div class="footer__content">
-                    <h3 class="footer__title">Usługi</h3>
-                    <ul>
-                        <li><a href="{{ url_for('reserve') }}" class="footer__link">Rezerwacja stolika</a></li>
-                    </ul>
-                </div>
-
-                <div class="footer__content">
-                    <h3 class="footer__title">Informacje</h3>
-                    <ul>
-                        <li><a href="#" class="footer__link">Wydarzenia</a></li>
-                        <li><a href="#" class="footer__link">Kontakt</a></li>
-                        <li><a href="#" class="footer__link">Polityka prywatności</a></li>
-                        <li><a href="#" class="footer__link">Regulamin</a></li>
-                    </ul>
-                </div>
-
-                <div class="footer__content">
-                    <h3 class="footer__title">Adres</h3>
-                    <ul>
-                            <li>ul. Rejtana</li>
-                            <li>Rzeszów, Podkarpackie</li>
-                            <li>123 456 789</li>
-                            <li>adresmail@gmail.com</li>
-                    </ul>
-                </div>
+            <div class="footer__content">
+                <h3 class="footer__title">Adres</h3>
+                <ul>
+                    <li>ul. Rejtana</li>
+                    <li>Rzeszów, Podkarpackie</li>
+                    <li>123 456 789</li>
+                    <li>adresmail@gmail.com</li>
+                </ul>
             </div>
-        </footer>
-    </main>
+        </div>
+    </footer>
+</main>
 
-    <script src="{{ url_for('static', filename='styles/js/main.js') }}"></script>
+<script src="{{ url_for('static', filename='styles/js/main.js') }}"></script>
 <script>
-  document.querySelectorAll('.anuluj-btn').forEach(button => {
-    button.addEventListener('click', function () {
-      const form = this.closest('form');
-      Swal.fire({
-        title: 'Na pewno anulować?',
-        text: 'Tej operacji nie można cofnąć!',
-        icon: 'warning',
-        showCancelButton: true,
-        confirmButtonColor: '#d33',
-        cancelButtonColor: '#6c757d',
-        confirmButtonText: 'Tak, anuluj',
-        cancelButtonText: 'Nie, wróć'
-      }).then((result) => {
-        if (result.isConfirmed) {
-          form.submit();
-        }
-      });
+    document.querySelectorAll('.anuluj-btn').forEach(button => {
+        button.addEventListener('click', function () {
+            const form = this.closest('form');
+            Swal.fire({
+                title: 'Na pewno anulować?',
+                text: 'Tej operacji nie można cofnąć!',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#d33',
+                cancelButtonColor: '#6c757d',
+                confirmButtonText: 'Tak, anuluj',
+                cancelButtonText: 'Nie, wróć'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    form.submit();
+                }
+            });
+        });
     });
-  });
 </script>
 </body>
 </html>

@@ -1,8 +1,7 @@
-import paypalrestsdk
 from flask import Flask, request, jsonify, redirect, url_for, render_template
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
-from datetime import datetime
+from datetime import datetime, timedelta
 from flask_wtf import FlaskForm
 from flask_wtf.csrf import CSRFError, validate_csrf
 from wtforms import StringField, PasswordField, SubmitField, SelectField
@@ -11,17 +10,15 @@ from wtforms.fields.simple import BooleanField
 from wtforms.validators import Length, EqualTo, Email, DataRequired, ValidationError
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy import and_
-from datetime import datetime, timedelta
-from uuid import uuid4
 import paypalrestsdk
-from datetime import datetime
-from sqlalchemy.exc import SQLAlchemyError
-
 
 app = Flask(__name__)
 
+
 def get_current_time():
     return datetime.utcnow()  # Używamy UTC dla prostoty
+
+
 app.config['SECRET_KEY'] = '1231231321'
 app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://root:bazahaslo@localhost/system_rezerwacji'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
@@ -38,6 +35,7 @@ login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = 'login'
 
+
 # Modele
 class Uzytkownik(db.Model, UserMixin):
     __tablename__ = 'uzytkownicy'
@@ -52,11 +50,13 @@ class Uzytkownik(db.Model, UserMixin):
     def get_id(self):
         return str(self.id_user)
 
+
 class Stolik(db.Model):
     __tablename__ = 'stoliki'
     id_stolika = db.Column(db.Integer, primary_key=True)
     ilosc_miejsc = db.Column(db.Integer, nullable=False)
     rezerwacje = db.relationship('Rezerwacja', backref='stolik', lazy=True)
+
 
 class Rezerwacja(db.Model):
     __tablename__ = 'rezerwacje'
@@ -77,16 +77,19 @@ class RegisterForm(FlaskForm):
     nazwisko = StringField(label='nazwisko', validators=[Length(min=3, max=50), DataRequired()])
     submit = SubmitField(label='Sign Up')
 
+
 class LoginForm(FlaskForm):
     email = StringField(label='email', validators=[DataRequired(), Email()])
     password = PasswordField(label='password', validators=[DataRequired()])
     submit = SubmitField(label='Sign In')
 
+
 class UserForm(FlaskForm):
     email = StringField(label='Email', validators=[Length(min=2, max=100), DataRequired(), Email()])
     imie = StringField(label='Imię', validators=[Length(min=3, max=50), DataRequired()])
     nazwisko = StringField(label='Nazwisko', validators=[Length(min=3, max=50), DataRequired()])
-    status = SelectField(label='Status', choices=[('admin', 'Admin'), ('klient', 'Klient')], validators=[DataRequired()])
+    status = SelectField(label='Status', choices=[('admin', 'Admin'), ('klient', 'Klient')],
+                         validators=[DataRequired()])
     submit = SubmitField(label='Zapisz')
 
     def __init__(self, user_id=None, *args, **kwargs):
@@ -102,7 +105,8 @@ class UserForm(FlaskForm):
 
     def validate_email(self, email):
         if self.user_id:
-            existing_user = Uzytkownik.query.filter_by(email=email.data).filter(Uzytkownik.id_user != self.user_id).first()
+            existing_user = Uzytkownik.query.filter_by(email=email.data).filter(
+                Uzytkownik.id_user != self.user_id).first()
             if existing_user:
                 raise ValidationError('Ten adres e-mail jest już zarejestrowany.')
 
@@ -113,6 +117,7 @@ class UserForm(FlaskForm):
                 raise ValidationError('Użytkownik z rolą admina nie może zmienić statusu na klient.')
             if user and user.status != 'admin' and status.data == 'admin':
                 raise ValidationError('Nie można zmienić statusu na admina bez odpowiednich uprawnień.')
+
 
 class RezerwacjaForm(FlaskForm):
     data = DateTimeLocalField(
@@ -139,9 +144,11 @@ class RezerwacjaForm(FlaskForm):
                 for s in Stolik.query.order_by(Stolik.id_stolika).all()
             ]
 
+
 @login_manager.user_loader
 def load_user(user_id):
     return Uzytkownik.query.get(int(user_id))
+
 
 # Endpointy - Strony Główne i Autoryzacja
 @app.route('/')
@@ -201,12 +208,14 @@ def login():
 
     return render_template('login.html', forml=forml, form=form, active_form='login', messages=messages)
 
+
 @app.route('/logout')
 @login_required
 def logout():
     logout_user()
     messages = [{'category': 'success', 'content': 'Wylogowano pomyślnie!'}]
     return render_template('home.html', user=current_user, stoliki=Stolik.query.all(), messages=messages)
+
 
 @app.route('/register', methods=['GET', 'POST'])
 def register_page():
@@ -230,7 +239,8 @@ def register_page():
             new_user = Uzytkownik.query.filter_by(email=form.email.data).first()
             if new_user:
                 login_user(new_user)
-                return jsonify({'status': 'success', 'message': 'Rejestracja zakończona sukcesem!', 'redirect': url_for('home')})
+                return jsonify(
+                    {'status': 'success', 'message': 'Rejestracja zakończona sukcesem!', 'redirect': url_for('home')})
             else:
                 return jsonify({'status': 'error', 'message': 'Błąd: Użytkownik nie został zapisany w bazie.'})
         except SQLAlchemyError as e:
@@ -244,6 +254,7 @@ def register_page():
             errors = {field: [str(e) for e in errs] for field, errs in form.errors.items()}
             return jsonify({'status': 'error', 'message': 'Walidacja formularza nie powiodła się.', 'errors': errors})
     return render_template('login.html', form=form, forml=forml, active_form='register', messages=messages)
+
 
 # Endpointy - Rezerwacje
 @app.route('/get_available_tables', methods=['POST'])
@@ -282,6 +293,7 @@ def get_available_tables():
     ]
 
     return jsonify({'status': 'success', 'tables': tables})
+
 
 @app.route('/reserve', methods=['GET', 'POST'])
 @login_required
@@ -327,7 +339,8 @@ def reserve():
             )
             db.session.add(rezerwacja)
             db.session.commit()
-            return jsonify({'status': 'success', 'message': 'Rezerwacja zakończona sukcesem!', 'redirect': url_for('my_reservations')})
+            return jsonify({'status': 'success', 'message': 'Rezerwacja zakończona sukcesem!',
+                            'redirect': url_for('my_reservations')})
         except SQLAlchemyError as e:
             db.session.rollback()
             return jsonify({'status': 'error', 'message': f'Błąd bazy danych: {str(e)}'})
@@ -336,12 +349,14 @@ def reserve():
     now = datetime.now()
     return render_template('reserve.html', messages=messages, now=now)
 
+
 @app.route('/my_reservations')
 @login_required
 def my_reservations():
     messages = []
     rezerwacje = Rezerwacja.query.filter_by(id_user=current_user.id_user).all()
     return render_template('my_reservations.html', rezerwacje=rezerwacje, messages=messages)
+
 
 @app.route('/cancel_reservation/<int:rezerwacja_id>', methods=['POST'])
 @login_required
@@ -350,10 +365,14 @@ def cancel_reservation(rezerwacja_id):
     rezerwacja = Rezerwacja.query.get_or_404(rezerwacja_id)
     if rezerwacja.id_user != current_user.id_user:
         messages.append({'category': 'error', 'content': 'Nie masz uprawnień do anulowania tej rezerwacji!'})
-        return render_template('my_reservations.html', rezerwacje=Rezerwacja.query.filter_by(id_user=current_user.id_user).all(), messages=messages)
+        return render_template('my_reservations.html',
+                               rezerwacje=Rezerwacja.query.filter_by(id_user=current_user.id_user).all(),
+                               messages=messages)
     if rezerwacja.oplacony:
         messages.append({'category': 'error', 'content': 'Nie można anulować opłaconej rezerwacji!'})
-        return render_template('my_reservations.html', rezerwacje=Rezerwacja.query.filter_by(id_user=current_user.id_user).all(), messages=messages)
+        return render_template('my_reservations.html',
+                               rezerwacje=Rezerwacja.query.filter_by(id_user=current_user.id_user).all(),
+                               messages=messages)
     try:
         db.session.delete(rezerwacja)
         db.session.commit()
@@ -361,7 +380,10 @@ def cancel_reservation(rezerwacja_id):
     except SQLAlchemyError as e:
         db.session.rollback()
         messages.append({'category': 'error', 'content': f'Błąd bazy danych: {str(e)}'})
-    return render_template('my_reservations.html', rezerwacje=Rezerwacja.query.filter_by(id_user=current_user.id_user).all(), messages=messages)
+    return render_template('my_reservations.html',
+                           rezerwacje=Rezerwacja.query.filter_by(id_user=current_user.id_user).all(), messages=messages)
+
+
 @app.route('/pay_reservation/<int:rezerwacja_id>')
 @login_required
 def pay_reservation(rezerwacja_id):
@@ -370,11 +392,15 @@ def pay_reservation(rezerwacja_id):
 
     if rezerwacja.id_user != current_user.id_user:
         messages.append({'category': 'error', 'content': 'Nie masz uprawnień do opłacenia tej rezerwacji!'})
-        return render_template('my_reservations.html', rezerwacje=Rezerwacja.query.filter_by(id_user=current_user.id_user).all(), messages=messages)
+        return render_template('my_reservations.html',
+                               rezerwacje=Rezerwacja.query.filter_by(id_user=current_user.id_user).all(),
+                               messages=messages)
 
     if rezerwacja.oplacony:
         messages.append({'category': 'error', 'content': 'Ta rezerwacja jest już opłacona!'})
-        return render_template('my_reservations.html', rezerwacje=Rezerwacja.query.filter_by(id_user=current_user.id_user).all(), messages=messages)
+        return render_template('my_reservations.html',
+                               rezerwacje=Rezerwacja.query.filter_by(id_user=current_user.id_user).all(),
+                               messages=messages)
 
     try:
         # Tworzenie płatności PayPal
@@ -410,7 +436,9 @@ def pay_reservation(rezerwacja_id):
         db.session.rollback()
         messages.append({'category': 'error', 'content': f'Błąd: {str(e)}'})
 
-    return render_template('my_reservations.html', rezerwacje=Rezerwacja.query.filter_by(id_user=current_user.id_user).all(), messages=messages)
+    return render_template('my_reservations.html',
+                           rezerwacje=Rezerwacja.query.filter_by(id_user=current_user.id_user).all(), messages=messages)
+
 
 @app.route('/payment_success')
 @login_required
@@ -440,13 +468,18 @@ def payment_success():
     else:
         messages.append({'category': 'error', 'content': 'Brak wymaganych danych do finalizacji płatności!'})
 
-    return render_template('my_reservations.html', rezerwacje=Rezerwacja.query.filter_by(id_user=current_user.id_user).all(), messages=messages)
+    return render_template('my_reservations.html',
+                           rezerwacje=Rezerwacja.query.filter_by(id_user=current_user.id_user).all(), messages=messages)
+
 
 @app.route('/payment_cancel')
 @login_required
 def payment_cancel():
     messages = [{'category': 'error', 'content': 'Płatność została anulowana!'}]
-    return render_template('my_reservations.html', rezerwacje=Rezerwacja.query.filter_by(id_user=current_user.id_user).all(), messages=messages)
+    return render_template('my_reservations.html',
+                           rezerwacje=Rezerwacja.query.filter_by(id_user=current_user.id_user).all(), messages=messages)
+
+
 # Endpointy - Panel Admina
 
 @app.route('/admin')
@@ -465,7 +498,9 @@ def admin():
     formy_rezerwacje = {r.id_rezerwacji: RezerwacjaForm(obj=r) for r in rezerwacje}
 
     return render_template('admin.html', rezerwacje=rezerwacje, stoliki=stoliki, uzytkownicy=uzytkownicy,
-                          messages=messages, formy=formy, formy_rezerwacje=formy_rezerwacje, now=get_current_time)
+                           messages=messages, formy=formy, formy_rezerwacje=formy_rezerwacje, now=get_current_time)
+
+
 @app.route('/mark_paid/<int:rezerwacja_id>', methods=['POST'])
 @login_required
 def mark_paid(rezerwacja_id):
@@ -496,7 +531,8 @@ def mark_paid(rezerwacja_id):
             rezerwacja.oplacony = True
             db.session.commit()
             if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-                return jsonify({'status': 'success', 'message': 'Rezerwacja oznaczona jako opłacona!', 'redirect': url_for('admin')})
+                return jsonify({'status': 'success', 'message': 'Rezerwacja oznaczona jako opłacona!',
+                                'redirect': url_for('admin')})
             messages.append({'category': 'success', 'content': 'Rezerwacja oznaczona jako opłacona!'})
 
         return render_admin_template(messages)
@@ -513,6 +549,7 @@ def mark_paid(rezerwacja_id):
         messages.append({'category': 'error', 'content': f'Błąd bazy danych: {str(e)}'})
         return render_admin_template(messages)
 
+
 def render_admin_template(messages):
     rezerwacje = Rezerwacja.query.all()
     stoliki = Stolik.query.all()
@@ -520,11 +557,7 @@ def render_admin_template(messages):
     formy = {u.id_user: UserForm(user_id=u.id_user, obj=u) for u in uzytkownicy}
     formy_rezerwacje = {r.id_rezerwacji: RezerwacjaForm(obj=r) for r in rezerwacje}
     return render_template('admin.html', rezerwacje=rezerwacje, stoliki=stoliki, uzytkownicy=uzytkownicy,
-                          messages=messages, formy=formy, formy_rezerwacje=formy_rezerwacje)
-
-from flask import request, jsonify, render_template, url_for
-from flask_login import login_required, current_user
-from sqlalchemy.exc import SQLAlchemyError
+                           messages=messages, formy=formy, formy_rezerwacje=formy_rezerwacje)
 
 
 @app.route('/admin/edit_rezerwacja/<int:rezerwacja_id>', methods=['GET', 'POST'])
@@ -629,9 +662,6 @@ def edit_rezerwacja(rezerwacja_id):
     return render_template('edit_rezerwacja.html', form=form, rezerwacja=rezerwacja, messages=messages)
 
 
-from flask_wtf.csrf import validate_csrf, CSRFError
-
-
 @app.route('/admin/delete_rezerwacja/<int:rezerwacja_id>', methods=['POST'])
 @login_required
 def delete_rezerwacja(rezerwacja_id):
@@ -669,9 +699,7 @@ def delete_rezerwacja(rezerwacja_id):
             return jsonify({'status': 'error', 'message': f'Błąd bazy danych: {str(e)}'}), 500
         messages = [{'category': 'error', 'content': f'Błąd bazy danych: {str(e)}'}]
         return render_admin_template(messages)
-from flask import request, jsonify, render_template, url_for
-from flask_login import login_required, current_user
-from sqlalchemy.exc import SQLAlchemyError
+
 
 @app.route('/admin/edit_user/<int:user_id>', methods=['GET', 'POST'])
 @login_required
@@ -694,14 +722,16 @@ def edit_user(user_id):
 
     if form.validate_on_submit():
         try:
-            existing_user = Uzytkownik.query.filter_by(email=form.email.data).filter(Uzytkownik.id_user != user_id).first()
+            existing_user = Uzytkownik.query.filter_by(email=form.email.data).filter(
+                Uzytkownik.id_user != user_id).first()
             if existing_user:
                 if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
                     return jsonify({'status': 'error', 'message': 'Ten adres e-mail jest już zarejestrowany!'}), 400
                 messages = [{'category': 'error', 'content': 'Ten adres e-mail jest już zarejestrowany!'}]
                 return render_template('edit_user.html', form=form, user=user, messages=messages)
 
-            print(f"Before update: User {user.id_user} - email={user.email}, imie={user.imie}, nazwisko={user.nazwisko}, status={user.status}")
+            print(
+                f"Before update: User {user.id_user} - email={user.email}, imie={user.imie}, nazwisko={user.nazwisko}, status={user.status}")
             user.email = form.email.data
             user.imie = form.imie.data
             user.nazwisko = form.nazwisko.data
@@ -709,12 +739,16 @@ def edit_user(user_id):
                 user.status = form.status.data
 
             db.session.commit()
-            print(f"After update: User {user.id_user} - email={user.email}, imie={user.imie}, nazwisko={user.nazwisko}, status={user.status}")
+            print(
+                f"After update: User {user.id_user} - email={user.email}, imie={user.imie}, nazwisko={user.nazwisko}, status={user.status}")
             if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-                return jsonify({'status': 'success', 'message': 'Dane użytkownika zostały zaktualizowane!', 'redirect': url_for('admin')})
+                return jsonify({'status': 'success', 'message': 'Dane użytkownika zostały zaktualizowane!',
+                                'redirect': url_for('admin')})
             messages = [{'category': 'success', 'content': 'Dane użytkownika zostały zaktualizowane!'}]
             return render_template('admin.html', rezerwacje=Rezerwacja.query.all(), stoliki=Stolik.query.all(),
-                                  uzytkownicy=Uzytkownik.query.all(), messages=messages, formy={u.id_user: UserForm(user_id=u.id_user, obj=u) for u in Uzytkownik.query.all()})
+                                   uzytkownicy=Uzytkownik.query.all(), messages=messages,
+                                   formy={u.id_user: UserForm(user_id=u.id_user, obj=u) for u in
+                                          Uzytkownik.query.all()})
         except SQLAlchemyError as e:
             db.session.rollback()
             print(f"Database error: {str(e)}")
@@ -793,6 +827,8 @@ def delete_user(user_id):
         return render_template('admin.html', rezerwacje=Rezerwacja.query.all(), stoliki=Stolik.query.all(),
                                uzytkownicy=Uzytkownik.query.all(), messages=messages,
                                formy={u.id_user: UserForm(user_id=u.id_user, obj=u) for u in Uzytkownik.query.all()})
+
+
 # Endpointy - Zarządzanie Stolikami w Panelu Admina
 @app.route('/admin/get_table_reservations/<int:table_id>', methods=['GET'])
 @login_required
@@ -813,6 +849,7 @@ def get_table_reservations(table_id):
         return jsonify({'status': 'success', 'reservations': reservations_data})
     except Exception as e:
         return jsonify({'status': 'error', 'message': f'Wystąpił błąd: {str(e)}'}), 500
+
 
 @app.route('/admin/edit_table', methods=['POST'])
 @login_required
@@ -837,12 +874,14 @@ def edit_table():
 
         table.ilosc_miejsc = seats
         db.session.commit()
-        return jsonify({'status': 'success', 'message': 'Liczba miejsc została zaktualizowana!', 'redirect': url_for('admin')})
+        return jsonify(
+            {'status': 'success', 'message': 'Liczba miejsc została zaktualizowana!', 'redirect': url_for('admin')})
     except ValueError:
         return jsonify({'status': 'error', 'message': 'Liczba miejsc musi być liczbą!'})
     except SQLAlchemyError as e:
         db.session.rollback()
         return jsonify({'status': 'error', 'message': f'Błąd bazy danych: {str(e)}'})
+
 
 @app.route('/admin/delete_table/<int:table_id>', methods=['POST'])
 @login_required
@@ -862,7 +901,9 @@ def delete_table(table_id):
         db.session.rollback()
         messages.append({'category': 'error', 'content': f'Błąd bazy danych: {str(e)}'})
 
-    return render_template('admin.html', rezerwacje=Rezerwacja.query.all(), stoliki=Stolik.query.all(), uzytkownicy=Uzytkownik.query.all(), messages=messages)
+    return render_template('admin.html', rezerwacje=Rezerwacja.query.all(), stoliki=Stolik.query.all(),
+                           uzytkownicy=Uzytkownik.query.all(), messages=messages)
+
 
 if __name__ == '__main__':
     app.run(debug=True)
